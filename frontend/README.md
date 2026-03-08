@@ -68,8 +68,9 @@ docker run -p 3000:3000 katove-frontend
 ### Netlify / Cloudflare Pages
 
 1. Set the **build command** to `npm run build`.
-2. Set the **publish directory** to `.next`.
+2. Set the **output directory** to `.next` (the platform adapter handles the standalone output).
 3. Add environment variables in the platform dashboard.
+4. You may need a platform-specific adapter (e.g. `@netlify/plugin-nextjs`) for full Next.js support.
 
 ## Connecting to the Backend
 

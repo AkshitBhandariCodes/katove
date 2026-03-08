@@ -12,6 +12,8 @@ services:
     build:
       context: ./frontend
       args:
+        # This URL is used client-side in the browser, so it must be
+        # reachable from the host machine (not the Docker network).
         NEXT_PUBLIC_API_URL: http://localhost:3001
     ports:
       - "3000:3000"
