@@ -1422,7 +1422,7 @@ function SettingsManager() {
                                             if (file) {
                                                 const reader = new FileReader();
                                                 reader.onloadend = () => {
-                                                    setSettings(prev => ({...prev, payment_qr_url: reader.result as string}));
+                                                    setSettings((prev: any) => ({...prev, payment_qr_url: reader.result as string}));
                                                 };
                                                 reader.readAsDataURL(file);
                                             }
