@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getApiUrl } from "@/utils/api";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -65,7 +66,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     // Fetch system settings
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/settings`)
+    fetch(getApiUrl("/api/settings"))
       .then(res => res.json())
       .then(data => {
           setPaymentSettings({
@@ -78,7 +79,7 @@ export default function CheckoutPage() {
     // Fetch product details for cart items to check installment eligibility and cost prices
     if (items.length > 0) {
       Promise.all(items.map(item => 
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${item.id}`).then(res => res.json())
+        fetch(getApiUrl(`/api/products/${item.id}`)).then(res => res.json())
       )).then(data => setProductDetails(data))
         .catch(err => console.error(err));
     }
@@ -124,7 +125,7 @@ export default function CheckoutPage() {
       const refCode = urlParams.get('ref');
 
       // 1. Create the Order
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders`, {
+      const res = await fetch(getApiUrl("/api/orders"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -161,7 +162,7 @@ export default function CheckoutPage() {
       if (paymentMethod === 'manual' && proofFile) {
         const uploadData = new FormData();
         uploadData.append("paymentProof", proofFile);
-        const payRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders/${orderData.id}/pay`, {
+        const payRes = await fetch(getApiUrl(`/api/orders/${orderData.id}/pay`), {
             method: "PUT",
             body: uploadData
         });
@@ -178,7 +179,7 @@ export default function CheckoutPage() {
                installData.append("order_id", orderData.id);
                installmentDocs.forEach(doc => installData.append("documents", doc));
                
-               const instRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/installments/request`, {
+               const instRes = await fetch(getApiUrl("/api/installments/request"), {
                  method: "POST",
                  headers: { "Authorization": `Bearer ${token}` },
                  body: installData

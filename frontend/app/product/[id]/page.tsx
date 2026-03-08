@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getApiUrl } from "@/utils/api";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -28,7 +29,7 @@ export default function ProductPage() {
   useEffect(() => {
     if (params.id) {
         const id = Array.isArray(params.id) ? params.id[0] : params.id;
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}`)
+        fetch(getApiUrl(`/api/products/${id}`))
             .then(res => {
                 if (!res.ok) throw new Error("Not found");
                 return res.json();

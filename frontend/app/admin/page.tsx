@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getApiUrl } from "@/utils/api";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/utils/supabase";
@@ -250,7 +251,7 @@ function ProductManager() {
 
     const fetchProducts = async () => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products`);
+            const res = await fetch(getApiUrl("/api/products"));
             const data = await res.json();
             setProducts(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -269,7 +270,7 @@ function ProductManager() {
         if (!confirm("Are you sure you want to delete this product?")) return;
         
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}`, {
+            const res = await fetch(getApiUrl(`/api/products/${id}`), {
                 method: "DELETE",
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -453,7 +454,7 @@ function OrdersManager() {
 
     const fetchOrders = async () => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders`, {
+            const res = await fetch(getApiUrl("/api/orders"), {
                  headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -475,7 +476,7 @@ function OrdersManager() {
     const updateStatus = async (id: string, newStatus: string) => {
         setUpdatingId(id);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders/${id}/status`, {
+            const res = await fetch(getApiUrl(`/api/orders/${id}/status`), {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -662,7 +663,7 @@ function ProductForm({ mode, initialData, onCancel, onSuccess }: { mode: 'create
     });
 
     useEffect(() => {
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories`)
+        fetch(getApiUrl("/api/categories"))
             .then(res => res.json())
             .then(data => setCategories(data))
             .catch(err => console.error("Failed to load categories", err));
@@ -712,8 +713,8 @@ function ProductForm({ mode, initialData, onCancel, onSuccess }: { mode: 'create
             }
 
             const url = mode === 'create' 
-                ? `${process.env.NEXT_PUBLIC_API_URL}/api/products` 
-                : `${process.env.NEXT_PUBLIC_API_URL}/api/products/${initialData?.id}`;
+                ? getApiUrl("/api/products") 
+                : getApiUrl(`/api/products/${initialData?.id}`);
             
             const method = mode === 'create' ? "POST" : "PUT";
 
@@ -940,7 +941,7 @@ function CategoriesManager() {
 
     const fetchCategories = async () => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories`);
+            const res = await fetch(getApiUrl("/api/categories"));
             const data = await res.json();
             setCategories(Array.isArray(data) ? data : []);
         } catch (e) { 
@@ -955,7 +956,7 @@ function CategoriesManager() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories`, {
+            await fetch(getApiUrl("/api/categories"), {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ name: newName, description: newDesc })
             });
@@ -965,7 +966,7 @@ function CategoriesManager() {
 
     const handleDelete = async (id: string) => {
         if (!confirm('Delete this category?')) return;
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories/${id}`, {
+        await fetch(getApiUrl(`/api/categories/${id}`), {
             method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
         });
         fetchCategories();
@@ -1062,7 +1063,7 @@ function InstallmentsManager() {
     useEffect(() => { fetchRequests(); }, []);
 
     const handleAction = async (id: string, action: 'approve' | 'reject', note?: string) => {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/installments/${id}/${action}`, {
+        await fetch(getApiUrl(`/api/installments/${id}/${action}`), {
             method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ admin_note: note || `${action}d by admin` })
         });
@@ -1166,7 +1167,7 @@ function AffiliatesManager() {
 
     const fetchAffiliates = async () => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/affiliates`, {
+            const res = await fetch(getApiUrl("/api/affiliates"), {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -1181,7 +1182,7 @@ function AffiliatesManager() {
     useEffect(() => { fetchAffiliates(); }, []);
 
     const updateStatus = async (id: string, status: string) => {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/affiliates/${id}/status`, {
+        await fetch(getApiUrl(`/api/affiliates/${id}/status`), {
             method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ status })
         });
@@ -1245,7 +1246,7 @@ function SettingsManager() {
 
     const fetchSettings = async () => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/settings`);
+            const res = await fetch(getApiUrl("/api/settings"));
             const data = await res.json();
             setSettings(typeof data === 'object' && data !== null ? data : {});
         } catch (e) {
@@ -1278,7 +1279,7 @@ function SettingsManager() {
             const bannerInput = document.getElementById('heroBanner') as HTMLInputElement;
             if (bannerInput?.files?.[0]) formData.append('heroBanner', bannerInput.files[0]);
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/settings`, {
+            const res = await fetch(getApiUrl("/api/settings"), {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData

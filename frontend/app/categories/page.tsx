@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { getApiUrl } from "@/utils/api";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Box } from "lucide-react";
@@ -20,7 +21,7 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories`)
+    fetch(getApiUrl("/api/categories"))
       .then((res) => res.json())
       .then((data: Category[]) => {
         setCategories(data);

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getApiUrl } from "@/utils/api";
 import Link from "next/link";
 import { Copy, TrendingUp, Users, DollarSign, ArrowRight, Share2, Check } from "lucide-react";
 import { motion } from "framer-motion";
@@ -28,7 +29,7 @@ export default function AffiliatesPage() {
 
   useEffect(() => {
     if (user) {
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/affiliates/dashboard`, {
+        fetch(getApiUrl("/api/affiliates/dashboard"), {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
         .then(res => {
@@ -45,7 +46,7 @@ export default function AffiliatesPage() {
   const handleRegister = async () => {
       setRegistering(true);
       try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/affiliates/register`, {
+          const res = await fetch(getApiUrl("/api/affiliates/register"), {
               method: 'POST',
               headers: { 
                   'Content-Type': 'application/json',

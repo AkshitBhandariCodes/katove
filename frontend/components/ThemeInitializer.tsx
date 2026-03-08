@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { getApiUrl } from "@/utils/api";
 
 export function ThemeInitializer() {
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/settings`)
+    fetch(getApiUrl("/api/settings"))
       .then((res) => res.json())
       .then((data) => {
         if (data.font_family) {

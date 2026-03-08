@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getApiUrl } from "@/utils/api";
 import { useAuth } from "@/context/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -36,7 +37,7 @@ export default function UserOrdersPage() {
         if (authLoading) return;
 
         if (user && token) {
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders/user`, {
+            fetch(getApiUrl("/api/orders/user"), {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

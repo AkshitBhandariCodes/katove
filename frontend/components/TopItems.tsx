@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { Plus } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getApiUrl } from "@/utils/api";
 
 interface Product {
   id: number;
@@ -17,7 +18,7 @@ export function TopItems() {
   const [topItems, setTopItems] = useState<Product[]>([]);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products`)
+    fetch(getApiUrl("/api/products"))
       .then(res => res.json())
       .then(data => setTopItems(data.slice(0, 4)))
       .catch(err => console.error("Failed to fetch top items", err));

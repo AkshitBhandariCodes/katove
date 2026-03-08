@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getApiUrl } from "@/utils/api";
 import Image from "next/image";
 import { ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -58,7 +59,7 @@ export function Hero() {
   const [dynamicSlides, setDynamicSlides] = useState(slides);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/settings`)
+    fetch(getApiUrl("/api/settings"))
       .then(res => res.json())
       .then(data => {
         if (data.hero_title || data.hero_subtitle || data.hero_banner_url || data.primary_color) {

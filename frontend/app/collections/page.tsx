@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { getApiUrl } from "@/utils/api";
 import Image from "next/image";
 import Link from "next/link";
 import { Plus, ShoppingBag, Check } from "lucide-react";
@@ -22,7 +23,7 @@ export default function CollectionsPage() {
   const [addedId, setAddedId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products`)
+    fetch(getApiUrl("/api/products"))
       .then((res) => res.json())
       .then((data: Product[]) => {
         setProducts(data);
