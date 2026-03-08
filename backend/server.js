@@ -719,6 +719,7 @@ app.post('/api/orders', async (req, res) => {
           }
         });
       }
+      }
     }
 
     res.status(201).json(order);
@@ -1410,27 +1411,12 @@ app.get('/api/heroes', async (req, res) => {
   }
 });
 
-app.post('/api/heroes', authenticateAdmin, upload.single('image'), async (req, res) => {
+app.post('/api/heroes', authenticateAdmin, async (req, res) => {
   try {
-    const { title, subtitle, description, discount, accent_color, order_index } = req.body;
-    let imageUrl = req.body.image_url;
+    const { title, subtitle, description, discount, accent_color, order_index, image_url } = req.body;
 
-    if (req.file) {
-      const fileName = `${Date.now()}-${req.file.originalname}`;
-      const { data, error: uploadError } = await supabase.storage
-        .from('hero-deployments')
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
-          cacheControl: '3600'
-        });
-      
-      if (uploadError) throw uploadError;
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('hero-deployments')
-        .getPublicUrl(fileName);
-      
-      imageUrl = publicUrl;
+    if (!image_url) {
+      return res.status(400).json({ message: 'image_url is required. Upload the image client-side first.' });
     }
 
     const { data, error } = await supabase
@@ -1442,7 +1428,7 @@ app.post('/api/heroes', authenticateAdmin, upload.single('image'), async (req, r
         discount,
         accent_color,
         order_index: parseInt(order_index || 0),
-        image_url: imageUrl
+        image_url
       }])
       .select()
       .single();

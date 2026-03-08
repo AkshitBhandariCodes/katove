@@ -6,7 +6,7 @@ import { getApiUrl } from "@/utils/api";
 import { Loader2, Copy, CheckCircle, TrendingUp, DollarSign, Users } from "lucide-react";
 
 export default function AffiliateDashboard() {
-  const { user, token } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [affiliate, setAffiliate] = useState<any>(null);
@@ -23,13 +23,17 @@ export default function AffiliateDashboard() {
   const [copiedLink, setCopiedLink] = useState('');
 
   useEffect(() => {
+    // Wait for auth to finish loading before making any decisions
+    if (authLoading) return;
+    
     if (user && token) {
       fetchDashboard();
       fetchProducts();
-    } else if (user === null) {
-      setLoading(false); // Not logged in
+    } else {
+      // Auth finished loading and there's no user
+      setLoading(false);
     }
-  }, [user, token]);
+  }, [user, token, authLoading]);
 
   const fetchDashboard = async () => {
     try {
