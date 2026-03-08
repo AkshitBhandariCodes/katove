@@ -10,6 +10,18 @@ ALTER TABLE referral_links
   FOREIGN KEY (product_id) REFERENCES products(id)
   ON DELETE SET NULL;
 
+-- Set default values for affiliate numeric columns (prevents NULLs for new registrations)
+ALTER TABLE affiliates ALTER COLUMN total_clicks SET DEFAULT 0;
+ALTER TABLE affiliates ALTER COLUMN total_sales SET DEFAULT 0;
+ALTER TABLE affiliates ALTER COLUMN total_revenue SET DEFAULT 0;
+ALTER TABLE affiliates ALTER COLUMN total_commission SET DEFAULT 0;
+
+-- Backfill any existing NULL values
+UPDATE affiliates SET total_clicks = 0 WHERE total_clicks IS NULL;
+UPDATE affiliates SET total_sales = 0 WHERE total_sales IS NULL;
+UPDATE affiliates SET total_revenue = 0 WHERE total_revenue IS NULL;
+UPDATE affiliates SET total_commission = 0 WHERE total_commission IS NULL;
+
 -- Create the increment_referral_click RPC if it doesn't exist
 CREATE OR REPLACE FUNCTION increment_referral_click(link_uuid UUID, aff_uuid UUID)
 RETURNS void AS $$

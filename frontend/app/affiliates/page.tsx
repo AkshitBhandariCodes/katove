@@ -21,16 +21,19 @@ interface AffiliateData {
 }
 
 export default function AffiliatesPage() {
-  const { user } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<AffiliateData | null>(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    // Wait for auth to finish loading before making any decisions
+    if (authLoading) return;
+
+    if (user && token) {
         fetch(getApiUrl("/api/affiliates/dashboard"), {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            headers: { 'Authorization': `Bearer ${token}` }
         })
         .then(res => {
             if (res.ok) return res.json();
@@ -41,7 +44,7 @@ export default function AffiliatesPage() {
     } else {
         setLoading(false);
     }
-  }, [user]);
+  }, [user, token, authLoading]);
 
   const handleRegister = async () => {
       setRegistering(true);
@@ -50,12 +53,19 @@ export default function AffiliatesPage() {
               method: 'POST',
               headers: { 
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${localStorage.getItem('token')}` 
+                  'Authorization': `Bearer ${token}` 
               },
               body: JSON.stringify({ type: 'content_creator' })
           });
-          const d = await res.json();
-          setData(d);
+          if (!res.ok) throw new Error('Registration failed');
+          // Re-fetch dashboard to get the full data with links
+          const dashRes = await fetch(getApiUrl("/api/affiliates/dashboard"), {
+              headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (dashRes.ok) {
+              const d = await dashRes.json();
+              setData(d);
+          }
       } catch (e) {
           console.error(e);
       } finally {
@@ -64,7 +74,7 @@ export default function AffiliatesPage() {
   };
 
   const copyLink = () => {
-      if (data) {
+      if (data?.referral_code) {
           navigator.clipboard.writeText(`${window.location.origin}/?ref=${data.referral_code}`);
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
@@ -132,8 +142,8 @@ export default function AffiliatesPage() {
                             <p className="text-gray-400 font-mono text-sm mt-2">Active Operative: {user?.name}</p>
                         </div>
                         <div className="flex items-center gap-4">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-lg">Status: <span className="text-[#ccff00]">{data.status}</span></span>
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-lg">Rate: <span className="text-white">{data.commission_rate}%</span></span>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-lg">Status: <span className="text-[#ccff00]">{data.status || 'pending'}</span></span>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-lg">Rate: <span className="text-white">{data.commission_rate ?? 10}%</span></span>
                         </div>
                     </div>
 
@@ -141,7 +151,7 @@ export default function AffiliatesPage() {
                         <div className="flex-1">
                             <span className="text-xs font-black text-[#ccff00] uppercase tracking-widest block mb-2">Your Unique Deployment Broadcast Link</span>
                             <div className="text-lg md:text-xl font-mono text-white break-all">
-                                {window.location.origin}/?ref={data.referral_code}
+                                {typeof window !== 'undefined' ? window.location.origin : ''}/?ref={data.referral_code || 'loading...'}
                             </div>
                         </div>
                         <div className="flex gap-3">
@@ -159,10 +169,10 @@ export default function AffiliatesPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard title="Total Signals (Clicks)" value={data.total_clicks} icon={TrendingUp} />
-                        <StatCard title="Confirmed Deployments" value={data.total_sales} icon={Users} />
-                        <StatCard title="Network Revenue" value={`$${data.total_revenue}`} icon={ArrowRight} isMoney />
-                        <StatCard title="Pending Commission" value={`$${data.total_commission}`} icon={DollarSign} isMoney highlight />
+                        <StatCard title="Total Signals (Clicks)" value={data.total_clicks ?? 0} icon={TrendingUp} />
+                        <StatCard title="Confirmed Deployments" value={data.total_sales ?? 0} icon={Users} />
+                        <StatCard title="Network Revenue" value={`$${parseFloat(String(data.total_revenue ?? 0)).toFixed(2)}`} icon={ArrowRight} isMoney />
+                        <StatCard title="Pending Commission" value={`$${parseFloat(String(data.total_commission ?? 0)).toFixed(2)}`} icon={DollarSign} isMoney highlight />
                     </div>
                 </div>
             )}

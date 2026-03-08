@@ -1302,15 +1302,36 @@ function HeroListManager() {
             if (selectedFile) {
                 const fileExt = selectedFile.name.split('.').pop();
                 const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-                
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('hero-deployments')
-                    .upload(fileName, selectedFile, {
-                        cacheControl: '3600',
-                        upsert: false
-                    });
 
-                if (uploadError) throw new Error("Failed to upload image: " + uploadError.message);
+                // Get the active Supabase auth session token
+                const { data: sessionData } = await supabase.auth.getSession();
+                const accessToken = sessionData.session?.access_token;
+
+                if (!accessToken) {
+                    throw new Error("Auth session expired. Please refresh the page and try again.");
+                }
+
+                // Upload directly to Supabase Storage REST API with explicit auth
+                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                const uploadRes = await fetch(
+                    `${supabaseUrl}/storage/v1/object/hero-deployments/${fileName}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': selectedFile.type,
+                            'cache-control': 'max-age=3600',
+                            'x-upsert': 'false',
+                        },
+                        body: selectedFile,
+                    }
+                );
+
+                if (!uploadRes.ok) {
+                    const errBody = await uploadRes.text();
+                    console.error('Storage upload error:', uploadRes.status, errBody);
+                    throw new Error(`Image upload failed (${uploadRes.status}). Check bucket policies.`);
+                }
 
                 const { data: { publicUrl } } = supabase.storage
                     .from('hero-deployments')
@@ -1343,6 +1364,7 @@ function HeroListManager() {
             setPreviewUrl(null);
             fetchHeroes();
         } catch (err: any) {
+            console.error('Hero deploy error:', err);
             alert(err.message);
         } finally {
             setIsAdding(false);
