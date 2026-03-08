@@ -1433,7 +1433,12 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Katove Server running on ${BASE_URL}`);
-  console.log(`Supabase: ${process.env.SUPABASE_URL}`);
-});
+// Start the server only when run directly (not imported by Vercel)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Katove Server running on ${BASE_URL}`);
+    console.log(`Supabase: ${process.env.SUPABASE_URL}`);
+  });
+}
+
+module.exports = app;
