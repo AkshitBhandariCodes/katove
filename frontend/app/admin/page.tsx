@@ -1235,6 +1235,172 @@ function AffiliatesManager() {
     );
 }
 
+// --- Hero List Manager ---
+
+function HeroListManager() {
+    const { token } = useAuth();
+    const [heroes, setHeroes] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isAdding, setIsAdding] = useState(false);
+    const [newHero, setNewHero] = useState<any>({
+        title: '', subtitle: '', description: '', discount: '', accent_color: '#ccff00'
+    });
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    const fetchHeroes = async () => {
+        try {
+            const res = await fetch(getApiUrl("/api/heroes"));
+            const data = await res.json();
+            setHeroes(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchHeroes(); }, []);
+
+    const handleAddHero = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedFile && !newHero.image_url) {
+            alert("Image is required for deployment");
+            return;
+        }
+
+        setIsAdding(true);
+        try {
+            const formData = new FormData();
+            Object.entries(newHero).forEach(([key, val]: [string, any]) => formData.append(key, val));
+            if (selectedFile) formData.append('image', selectedFile);
+
+            const res = await fetch(getApiUrl("/api/heroes"), {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            if (!res.ok) throw new Error("Deployment failed");
+            
+            setNewHero({ title: '', subtitle: '', description: '', discount: '', accent_color: '#ccff00' });
+            setSelectedFile(null);
+            setPreviewUrl(null);
+            fetchHeroes();
+        } catch (err: any) {
+            alert(err.message);
+        } finally {
+            setIsAdding(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm("Decommission this asset?")) return;
+        try {
+            const res = await fetch(getApiUrl(`/api/heroes/${id}`), {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) fetchHeroes();
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    return (
+        <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--primary-color)] to-transparent" />
+            <h3 className="text-xl font-black uppercase text-white mb-8 italic flex items-center gap-3">
+                <TrendingUp className="w-6 h-6 text-[var(--primary-color)]" /> Hero Fleet Management
+            </h3>
+
+            <div className="space-y-12">
+                {/* New Hero Form */}
+                <form onSubmit={handleAddHero} className="bg-black/40 border border-white/5 rounded-3xl p-8 space-y-6">
+                    <h4 className="text-xs font-black uppercase text-gray-500 tracking-widest mb-4">Commission New Asset</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-gray-600 uppercase">Title</label>
+                            <input value={newHero.title} onChange={e => setNewHero({...newHero, title: e.target.value})} className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[var(--primary-color)] outline-none text-sm" placeholder="Combat Title" required />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-gray-600 uppercase">Subtitle</label>
+                            <input value={newHero.subtitle} onChange={e => setNewHero({...newHero, subtitle: e.target.value})} className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[var(--primary-color)] outline-none text-sm" placeholder="Sector Tag" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-gray-600 uppercase">Discount Code</label>
+                            <input value={newHero.discount} onChange={e => setNewHero({...newHero, discount: e.target.value})} className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[var(--primary-color)] outline-none text-sm" placeholder="-15%" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-gray-600 uppercase">Accent Color</label>
+                            <div className="flex gap-3">
+                                <input type="color" value={newHero.accent_color} onChange={e => setNewHero({...newHero, accent_color: e.target.value})} className="w-12 h-12 bg-black border border-white/10 rounded-xl p-1 cursor-pointer" />
+                                <input value={newHero.accent_color} onChange={e => setNewHero({...newHero, accent_color: e.target.value})} className="flex-1 bg-black/60 border border-white/10 rounded-xl px-4 text-white font-mono text-xs" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-600 uppercase">Description</label>
+                        <textarea value={newHero.description} onChange={e => setNewHero({...newHero, description: e.target.value})} className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[var(--primary-color)] outline-none text-sm resize-none" rows={3} placeholder="Mission objectives..."></textarea>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <input type="file" id="newHeroImg" hidden accept="image/*" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                                setSelectedFile(file);
+                                const reader = new FileReader();
+                                reader.onloadend = () => setPreviewUrl(reader.result as string);
+                                reader.readAsDataURL(file);
+                            }
+                        }} />
+                        <div className="flex flex-col md:flex-row gap-6">
+                            {previewUrl && (
+                                <div className="w-full md:w-48 aspect-video rounded-xl overflow-hidden border border-white/10 shrink-0">
+                                    <img src={previewUrl} className="w-full h-full object-cover" />
+                                </div>
+                            )}
+                            <label htmlFor="newHeroImg" className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl p-6 hover:border-[var(--primary-color)]/30 cursor-pointer bg-black/40">
+                                <Upload className="w-6 h-6 text-gray-600 mb-1" />
+                                <span className="text-[10px] font-bold text-gray-500 uppercase">{selectedFile ? selectedFile.name : 'Select Tactical Asset'}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" disabled={isAdding} className="w-full bg-white text-black font-black py-4 rounded-2xl hover:bg-[var(--primary-color)] transition-all uppercase text-sm tracking-tighter">
+                        {isAdding ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Deploy Asset"}
+                    </button>
+                </form>
+
+                {/* Hero List */}
+                <div className="space-y-4">
+                    <h4 className="text-xs font-black uppercase text-gray-500 tracking-widest">Active Fleet</h4>
+                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin text-[var(--primary-color)]" /> : heroes.length === 0 ? (
+                        <div className="text-center py-10 text-gray-600 font-mono text-xs uppercase">No active deployments</div>
+                    ) : (
+                        <div className="grid gap-4">
+                            {heroes.map(hero => (
+                                <div key={hero.id} className="bg-black/40 border border-white/5 rounded-2xl p-4 flex gap-6 items-center group">
+                                    <div className="w-24 h-16 rounded-lg overflow-hidden shrink-0 border border-white/10">
+                                        <img src={hero.image_url} className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-black uppercase mb-1" style={{ color: hero.accent_color }}>{hero.subtitle || 'General Asset'}</p>
+                                        <h5 className="font-bold text-white truncate">{hero.title}</h5>
+                                    </div>
+                                    <button onClick={() => handleDelete(hero.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // --- Settings Manager ---
 
 function SettingsManager() {
@@ -1367,79 +1533,7 @@ function SettingsManager() {
                     </div>
                 </div>
 
-                {/* Hero Section */}
-                <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--primary-color)] to-transparent" />
-                    <h3 className="text-xl font-black uppercase text-white mb-8 italic flex items-center gap-3">
-                        <TrendingUp className="w-6 h-6 text-[var(--primary-color)]" /> Hero Deployment
-                    </h3>
-                    
-                    <div className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Combat Title</label>
-                                <input type="text" value={settings.hero_title || ""} onChange={e => handleChange('hero_title', e.target.value)} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-[var(--primary-color)] outline-none" placeholder="e.g. UNLEASH THE BEAST" />
-                            </div>
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Accent Signature</label>
-                                <input type="text" value={settings.accent_color || ""} onChange={e => handleChange('accent_color', e.target.value)} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-[var(--primary-color)] outline-none" placeholder="e.g. #ccff00" />
-                            </div>
-                        </div>
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Tactical Subtext</label>
-                            <textarea value={settings.hero_subtitle || ""} onChange={e => handleChange('hero_subtitle', e.target.value)} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-[var(--primary-color)] outline-none resize-none" rows={3} placeholder="Describe the mission objective..." />
-                        </div>
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Primary Visual Asset</label>
-                            <div className="flex flex-col sm:flex-row gap-6 items-center">
-                                {settings.hero_banner_url && (
-                                    <div className="w-full sm:w-64 aspect-video bg-black/50 rounded-2xl overflow-hidden shrink-0 border border-white/10 group relative">
-                                        <Image
-                                            src={settings.hero_banner_url}
-                                            alt="Hero Preview"
-                                            width={400}
-                                            height={225}
-                                            className="w-full h-full object-cover"
-                                            unoptimized
-                                        />
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleChange('hero_banner_url', '')}
-                                            className="absolute top-4 right-4 bg-red-500 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 shadow-xl"
-                                            title="Remove Image"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                )}
-                                <div className="flex-1 w-full">
-                                    <input 
-                                        type="file" 
-                                        id="heroBanner" 
-                                        className="hidden" 
-                                        accept="image/*"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                const reader = new FileReader();
-                                                reader.onloadend = () => {
-                                                    setSettings((prev: any) => ({...prev, hero_banner_url: reader.result as string}));
-                                                };
-                                                reader.readAsDataURL(file);
-                                            }
-                                        }}
-                                    />
-                                    <label htmlFor="heroBanner" className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-3xl p-10 cursor-pointer hover:border-[var(--primary-color)]/30 hover:bg-[#111] transition-all bg-black h-full">
-                                        <Upload className="w-8 h-8 text-gray-600 mb-2" />
-                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                            {settings.hero_banner_url ? 'Update Tactical Frame' : 'Upload Tactical Frame'}
-                                        </span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <HeroListManager />
 
                 {/* Checkout Section */}
                 <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 relative overflow-hidden">

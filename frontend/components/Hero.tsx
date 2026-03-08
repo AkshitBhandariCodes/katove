@@ -56,40 +56,59 @@ const slides = [
 
 export function Hero() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [dynamicSlides, setDynamicSlides] = useState(slides);
+  const [dynamicSlides, setDynamicSlides] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(getApiUrl("/api/settings"))
+    fetch(getApiUrl("/api/heroes"))
       .then(res => res.json())
       .then(data => {
-        if (data.hero_title || data.hero_subtitle || data.hero_banner_url || data.primary_color) {
-          setDynamicSlides(prev => {
-            const newSlides = [...prev];
-            newSlides[0] = {
-              ...newSlides[0],
-              title: data.hero_title ? <>{data.hero_title}</> : newSlides[0].title,
-              subtitle: data.hero_subtitle || newSlides[0].subtitle,
-              image: data.hero_banner_url || newSlides[0].image,
-              accent: data.primary_color || newSlides[0].accent,
-            };
-            return newSlides;
-          });
+        if (data && data.length > 0) {
+          setDynamicSlides(data);
+        } else {
+          // Fallback to default slides if none exist in DB
+          setDynamicSlides(slides.map(s => ({
+            ...s,
+            accent_color: s.accent,
+            image_url: s.image
+          })));
         }
+        setLoading(false);
       })
-      .catch(console.error);
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
   }, []);
 
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % slides.length);
+    if (dynamicSlides.length === 0) return;
+    setCurrentIndex((prev) => (prev + 1) % dynamicSlides.length);
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
+    if (dynamicSlides.length === 0) return;
+    setCurrentIndex((prev) => (prev - 1 + dynamicSlides.length) % dynamicSlides.length);
   };
 
   const getSlideIndex = (offset: number) => {
-    return (currentIndex + offset + slides.length) % slides.length;
+    if (dynamicSlides.length === 0) return 0;
+    return (currentIndex + offset + dynamicSlides.length) % dynamicSlides.length;
   };
+
+  if (loading || dynamicSlides.length === 0) {
+    return (
+      <section className="relative w-full h-screen pt-24 pb-12 overflow-hidden flex items-center justify-center bg-[#050505]">
+        <div className="animate-pulse flex space-x-4">
+          <div className="h-12 w-12 bg-gray-700 rounded-full"></div>
+          <div className="space-y-4">
+            <div className="h-4 w-[250px] bg-gray-700 rounded"></div>
+            <div className="h-4 w-[200px] bg-gray-700 rounded"></div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const currentSlide = dynamicSlides[currentIndex];
   // Calculate previous and next slides for previews
@@ -107,7 +126,7 @@ export function Hero() {
             className="hidden lg:block w-[120px] h-full rounded-[32px] overflow-hidden opacity-40 hover:opacity-60 transition-opacity bg-[#111] border border-white/5 relative shrink-0 cursor-pointer group"
         >
            <Image
-            src={prevSlideData.image}
+            src={prevSlideData.image_url || prevSlideData.image}
             alt="Previous"
             fill
             className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -129,7 +148,7 @@ export function Hero() {
               {/* Background Image */}
               <div className="absolute inset-0">
                  <Image
-                  src={currentSlide.image}
+                  src={currentSlide.image_url || currentSlide.image}
                   alt="Hero Image"
                   fill
                   className="object-cover hover:scale-105 transition-transform duration-700"
@@ -145,9 +164,9 @@ export function Hero() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                   className="inline-flex items-center gap-2 font-medium tracking-wide mb-6 uppercase text-xs"
-                  style={{ color: currentSlide.accent }}
+                  style={{ color: currentSlide.accent_color || currentSlide.accent }}
                 >
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentSlide.accent }} />
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentSlide.accent_color || currentSlide.accent }} />
                   {currentSlide.subtitle}
                 </motion.span>
                 
@@ -175,7 +194,7 @@ export function Hero() {
                     transition={{ delay: 0.5 }}
                     onClick={() => window.location.href = '/collections'}
                     className="text-black font-bold py-3 px-8 md:py-4 md:px-10 rounded-full w-fit hover:bg-white transition-colors duration-300 flex items-center gap-2 group/btn border border-transparent"
-                    style={{ backgroundColor: currentSlide.accent }}
+                    style={{ backgroundColor: currentSlide.accent_color || currentSlide.accent }}
                 >
                   Shop Now
                   <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
@@ -191,12 +210,12 @@ export function Hero() {
         </div>
 
         {/* Next Slide Preview (Right) */}
-        <div 
+         <div 
             onClick={nextSlide}
             className="hidden lg:block w-[120px] h-full rounded-[32px] overflow-hidden opacity-40 hover:opacity-60 transition-opacity bg-[#111] border border-white/5 relative shrink-0 cursor-pointer group"
         >
           <Image
-            src={nextSlideData.image}
+            src={nextSlideData.image_url || nextSlideData.image}
             alt="Next"
             fill
             className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -207,7 +226,7 @@ export function Hero() {
           <div className="absolute inset-0 bg-black/30" />
           
            <div className="absolute bottom-20 left-4 right-4 z-10">
-             <p className="text-xs font-medium mb-1" style={{ color: nextSlideData.accent }}>• {nextSlideData.subtitle}</p>
+             <p className="text-xs font-medium mb-1" style={{ color: nextSlideData.accent_color || nextSlideData.accent }}>• {nextSlideData.subtitle}</p>
              <p className="text-white text-sm font-bold leading-tight line-clamp-2">Click to View</p>
            </div>
         </div>
@@ -229,13 +248,13 @@ export function Hero() {
       </div>
 
       {/* Pagination Dots */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-30">
-        {slides.map((_, index) => (
+       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-30">
+        {dynamicSlides.map((_, index) => (
             <button 
                 key={index}
                 onClick={() => setCurrentIndex(index)}
                 className={`h-1 rounded-full transition-all duration-300 ${index === currentIndex ? "w-12" : "w-8 bg-white/20"}`}
-                style={{ backgroundColor: index === currentIndex ? slides[index].accent : undefined }}
+                style={{ backgroundColor: index === currentIndex ? (dynamicSlides[index].accent_color || dynamicSlides[index].accent) : undefined }}
             />
         ))}
       </div>

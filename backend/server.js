@@ -1345,6 +1345,96 @@ app.post('/api/settings', authenticateAdmin, upload.fields([{ name: 'paymentQr',
   }
 });
 
+// ──────────────────────────────────────────
+// HERO MANAGEMENT ROUTES
+// ──────────────────────────────────────────
+
+app.get('/api/heroes', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('heroes')
+      .select('*')
+      .order('order_index', { ascending: true });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch heroes' });
+  }
+});
+
+app.post('/api/heroes', authenticateAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { title, subtitle, description, discount, accent_color, order_index } = req.body;
+    let imageUrl = req.body.image_url;
+
+    if (req.file) {
+      const fileName = `${Date.now()}-${req.file.originalname}`;
+      const { data, error: uploadError } = await supabase.storage
+        .from('hero-deployments')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          cacheControl: '3600'
+        });
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('hero-deployments')
+        .getPublicUrl(fileName);
+      
+      imageUrl = publicUrl;
+    }
+
+    const { data, error } = await supabase
+      .from('heroes')
+      .insert([{
+        title,
+        subtitle,
+        description,
+        discount,
+        accent_color,
+        order_index: parseInt(order_index || 0),
+        image_url: imageUrl
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Hero creation error:', err);
+    res.status(500).json({ message: 'Failed to create hero banner' });
+  }
+});
+
+app.delete('/api/heroes/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { data: hero, error: fetchError } = await supabase
+      .from('heroes')
+      .select('image_url')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Try to delete from storage if it's in our bucket
+    if (hero?.image_url?.includes('hero-deployments')) {
+      const fileName = hero.image_url.split('/').pop();
+      await supabase.storage.from('hero-deployments').remove([fileName]);
+    }
+
+    const { error } = await supabase
+      .from('heroes')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+    res.json({ message: 'Hero removed' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to delete hero' });
+  }
+});
+
 // Batch update settings (for admin design control)
 app.put('/api/settings/batch', authenticateAdmin, async (req, res) => {
   try {
