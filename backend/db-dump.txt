@@ -1,0 +1,33 @@
+ORDERS:
+[
+  {
+    "id": "a64ea848-c47f-414a-97a5-fd0366738226",
+    "created_at": "2026-03-08T09:36:18.475353+00:00",
+    "is_installment": true,
+    "user_id": "d27c7f18-505b-472b-be14-d1c2420dbf08"
+  },
+  {
+    "id": "51d73ea4-d6dc-4312-89f5-1f5c70c8e421",
+    "created_at": "2026-03-08T08:42:22.273194+00:00",
+    "is_installment": true,
+    "user_id": "d27c7f18-505b-472b-be14-d1c2420dbf08"
+  }
+]
+
+INSTALLMENTS:
+[
+  {
+    "id": "db81585a-0a3d-4d2e-948c-bb35e99406e4",
+    "created_at": "2026-03-08T09:36:19.784953+00:00",
+    "order_id": "a64ea848-c47f-414a-97a5-fd0366738226",
+    "user_id": "d27c7f18-505b-472b-be14-d1c2420dbf08",
+    "status": "pending"
+  },
+  {
+    "id": "603f6dc8-b7a3-4990-bd8a-5e6c1f93b623",
+    "created_at": "2026-03-08T09:36:19.029477+00:00",
+    "order_id": "a64ea848-c47f-414a-97a5-fd0366738226",
+    "user_id": "d27c7f18-505b-472b-be14-d1c2420dbf08",
+    "status": "pending"
+  }
+]

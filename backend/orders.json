@@ -1,0 +1,28 @@
+[
+  {
+    "id": "1771010632063",
+    "items": [
+      {
+        "id": 1,
+        "name": "s",
+        "price": 113,
+        "image": "http://localhost:3001/uploads/1771008630160-Untitled design.png",
+        "quantity": 1
+      }
+    ],
+    "total": 113,
+    "shippingAddress": {
+      "address": "ee3e",
+      "city": "eee",
+      "zip": "eeee"
+    },
+    "user": {
+      "name": "Danish Khan",
+      "email": "danishkhhan@proton.me",
+      "id": "1771007805627"
+    },
+    "status": "Delivered",
+    "createdAt": "2026-02-13T19:23:52.063Z",
+    "paymentProof": "/uploads/1771010649285-_.jpeg"
+  }
+]
