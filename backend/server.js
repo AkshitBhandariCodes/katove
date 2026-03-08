@@ -1307,6 +1307,20 @@ app.post('/api/settings', authenticateAdmin, upload.fields([{ name: 'paymentQr',
         .upsert({ key: 'payment_instructions', value: paymentInstructions, updated_at: new Date().toISOString() }, { onConflict: 'key' });
     }
 
+    // List of keys handled via file uploads
+    const fileKeys = ['payment_qr_url', 'hero_banner_url', 'paymentQr', 'heroBanner'];
+
+    // Update any other settings passed
+    for (const [key, value] of Object.entries(otherSettings)) {
+      // If it's a file key and not empty, skip (it's handled by multer or we don't want to overwrite it with text)
+      // If it IS a file key and value is empty string, we should clear it in the DB
+      if (fileKeys.includes(key) && value !== '') continue;
+      
+      await supabase
+        .from('site_settings')
+        .upsert({ key: key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    }
+
     // Convert and store files as Base64 strings in the DB
     if (req.files) {
       if (req.files.paymentQr && req.files.paymentQr[0]) {
@@ -1322,13 +1336,6 @@ app.post('/api/settings', authenticateAdmin, upload.fields([{ name: 'paymentQr',
           .from('site_settings')
           .upsert({ key: 'hero_banner_url', value: heroBase64, updated_at: new Date().toISOString() }, { onConflict: 'key' });
       }
-    }
-
-    // Update any other settings passed
-    for (const [key, value] of Object.entries(otherSettings)) {
-      await supabase
-        .from('site_settings')
-        .upsert({ key: key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
     }
 
     res.json({ message: 'Settings updated successfully' });

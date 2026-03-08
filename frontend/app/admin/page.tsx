@@ -1267,17 +1267,32 @@ function SettingsManager() {
         try {
             const formData = new FormData();
             Object.entries(settings).forEach(([key, value]: [string, any]) => {
-                if (!(value instanceof File)) {
+                // Don't send Base64 preview strings to the server as key-value pairs
+                // if they are being replaced by fresh file uploads or intended to be cleared.
+                if (!(value instanceof File) && 
+                    !key.includes('_url') && 
+                    !key.includes('paymentQr') && 
+                    !key.includes('heroBanner')) {
                     formData.append(key, value);
                 }
             });
 
             // Handle file uploads separately
             const qrInput = document.getElementById('paymentQr') as HTMLInputElement;
-            if (qrInput?.files?.[0]) formData.append('paymentQr', qrInput.files[0]);
+            if (qrInput?.files?.[0]) {
+                formData.append('paymentQr', qrInput.files[0]);
+            } else if (!settings.payment_qr_url) {
+                // If the URL is empty and no new file is selected, signal removal
+                formData.append('payment_qr_url', '');
+            }
             
             const bannerInput = document.getElementById('heroBanner') as HTMLInputElement;
-            if (bannerInput?.files?.[0]) formData.append('heroBanner', bannerInput.files[0]);
+            if (bannerInput?.files?.[0]) {
+                formData.append('heroBanner', bannerInput.files[0]);
+            } else if (!settings.hero_banner_url) {
+                // If the URL is empty and no new file is selected, signal removal
+                formData.append('hero_banner_url', '');
+            }
 
             const res = await fetch(getApiUrl("/api/settings"), {
                 method: 'POST',
@@ -1376,11 +1391,52 @@ function SettingsManager() {
                         </div>
                         <div className="space-y-3">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Primary Visual Asset</label>
-                            <input type="file" id="heroBanner" className="hidden" />
-                            <label htmlFor="heroBanner" className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-3xl p-10 cursor-pointer hover:border-[var(--primary-color)]/30 hover:bg-[#111] transition-all bg-black">
-                                <Upload className="w-8 h-8 text-gray-600 mb-2" />
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Upload New Tactical Frame</span>
-                            </label>
+                            <div className="flex flex-col sm:flex-row gap-6 items-center">
+                                {settings.hero_banner_url && (
+                                    <div className="w-full sm:w-64 aspect-video bg-black/50 rounded-2xl overflow-hidden shrink-0 border border-white/10 group relative">
+                                        <Image
+                                            src={settings.hero_banner_url}
+                                            alt="Hero Preview"
+                                            width={400}
+                                            height={225}
+                                            className="w-full h-full object-cover"
+                                            unoptimized
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => handleChange('hero_banner_url', '')}
+                                            className="absolute top-4 right-4 bg-red-500 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 shadow-xl"
+                                            title="Remove Image"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="flex-1 w-full">
+                                    <input 
+                                        type="file" 
+                                        id="heroBanner" 
+                                        className="hidden" 
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => {
+                                                    setSettings((prev: any) => ({...prev, hero_banner_url: reader.result as string}));
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                    />
+                                    <label htmlFor="heroBanner" className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-3xl p-10 cursor-pointer hover:border-[var(--primary-color)]/30 hover:bg-[#111] transition-all bg-black h-full">
+                                        <Upload className="w-8 h-8 text-gray-600 mb-2" />
+                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                            {settings.hero_banner_url ? 'Update Tactical Frame' : 'Upload Tactical Frame'}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
