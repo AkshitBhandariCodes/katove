@@ -1189,6 +1189,14 @@ function AffiliatesManager() {
         fetchAffiliates();
     };
 
+    const updateCommission = async (id: string, commission_rate: number) => {
+        await fetch(getApiUrl(`/api/affiliates/${id}/commission`), {
+            method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ commission_rate })
+        });
+        fetchAffiliates();
+    };
+
     const getTypeBadge = (t: string) => t === 'sales_manager' ? 'text-blue-400 bg-blue-400/10' : 'text-purple-400 bg-purple-400/10';
 
     return (
@@ -1215,7 +1223,19 @@ function AffiliatesManager() {
                                         <div><div className="text-[10px] text-gray-500 uppercase font-bold">Sales</div><div className="text-lg font-mono text-white font-bold">{aff.total_sales}</div></div>
                                         <div><div className="text-[10px] text-gray-500 uppercase font-bold">Revenue</div><div className="text-lg font-mono text-[var(--primary-color)] font-bold">{aff.total_revenue}</div></div>
                                         <div><div className="text-[10px] text-gray-500 uppercase font-bold">Commission</div><div className="text-lg font-mono text-[var(--primary-color)] font-bold">{aff.total_commission}</div></div>
-                                        <div><div className="text-[10px] text-gray-500 uppercase font-bold">Rate</div><div className="text-lg font-mono text-white font-bold">{aff.commission_rate}%</div></div>
+                                        <div 
+                                          className="cursor-pointer group relative" 
+                                          onClick={() => {
+                                              const rate = prompt('Enter new commission rate (%)', String(aff.commission_rate));
+                                              if (rate !== null && !isNaN(Number(rate))) {
+                                                  updateCommission(aff.id, Number(rate));
+                                              }
+                                          }}
+                                          title="Click to edit commission rate"
+                                        >
+                                          <div className="text-[10px] text-gray-500 uppercase font-bold group-hover:text-white transition-colors">Rate ✎</div>
+                                          <div className="text-lg font-mono text-white font-bold border-b border-transparent group-hover:border-white/30 inline-block">{aff.commission_rate}%</div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2 min-w-[160px]">

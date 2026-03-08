@@ -67,10 +67,10 @@ const Footer = () => {
                     <p className="text-gray-500 text-xs">
                         © 2026 Katove. All rights reserved.
                     </p>
-                    <div className="flex items-center gap-8">
-                        <Link href="#" className="text-xs text-gray-500 hover:text-white transition-colors">Terms of Service</Link>
-                        <Link href="#" className="text-xs text-gray-500 hover:text-white transition-colors">Privacy Policy</Link>
-                        <Link href="#" className="text-xs text-gray-500 hover:text-white transition-colors">Cookie Policy</Link>
+                    <div className="flex items-center gap-6">
+                        <Link href="/affiliate" className="text-xs text-[#ccff00] hover:text-white transition-colors font-bold uppercase tracking-widest">Partner Program</Link>
+                        <Link href="#" className="text-xs text-gray-500 hover:text-white transition-colors">Terms</Link>
+                        <Link href="#" className="text-xs text-gray-500 hover:text-white transition-colors">Privacy</Link>
                     </div>
                 </div>
             </div>

@@ -122,7 +122,7 @@ export default function CheckoutPage() {
     setLoading(true);
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const refCode = urlParams.get('ref');
+      const refCode = urlParams.get('ref') || localStorage.getItem('referral_code');
 
       // 1. Create the Order
       const res = await fetch(getApiUrl("/api/orders"), {

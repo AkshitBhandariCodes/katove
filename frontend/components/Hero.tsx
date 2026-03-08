@@ -66,12 +66,8 @@ export function Hero() {
         if (data && data.length > 0) {
           setDynamicSlides(data);
         } else {
-          // Fallback to default slides if none exist in DB
-          setDynamicSlides(slides.map(s => ({
-            ...s,
-            accent_color: s.accent,
-            image_url: s.image
-          })));
+          // If no heroes in DB, clear slides
+          setDynamicSlides([]);
         }
         setLoading(false);
       })

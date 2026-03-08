@@ -5,6 +5,8 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { ThemeInitializer } from "@/components/ThemeInitializer";
+import { Suspense } from "react";
+import { ReferralTracker } from "@/components/ReferralTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,6 +44,9 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>
             <ThemeInitializer />
+            <Suspense fallback={null}>
+              <ReferralTracker />
+            </Suspense>
             {children}
             <Footer />
           </CartProvider>

@@ -141,6 +141,27 @@ const authenticateAdmin = async (req, res, next) => {
 };
 
 // ──────────────────────────────────────────
+// ADMIN AFFILIATE EXTENSION
+// ──────────────────────────────────────────
+
+app.put('/api/affiliates/:id/commission', authenticateAdmin, async (req, res) => {
+  try {
+    const { commission_rate } = req.body;
+    if (commission_rate === undefined || commission_rate < 0) {
+      return res.status(400).json({ message: 'Invalid commission rate' });
+    }
+    const { error } = await supabase
+      .from('affiliates')
+      .update({ commission_rate: parseFloat(commission_rate) })
+      .eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ──────────────────────────────────────────
 // AUTH ROUTES
 // ──────────────────────────────────────────
 
