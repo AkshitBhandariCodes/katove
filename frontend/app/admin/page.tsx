@@ -1297,17 +1297,46 @@ function HeroListManager() {
 
         setIsAdding(true);
         try {
-            const formData = new FormData();
-            Object.entries(newHero).forEach(([key, val]: [string, any]) => formData.append(key, val));
-            if (selectedFile) formData.append('image', selectedFile);
+            let finalImageUrl = "";
+
+            if (selectedFile) {
+                const fileExt = selectedFile.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+                
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('hero-deployments')
+                    .upload(fileName, selectedFile, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+
+                if (uploadError) throw new Error("Failed to upload image: " + uploadError.message);
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('hero-deployments')
+                    .getPublicUrl(fileName);
+                    
+                finalImageUrl = publicUrl;
+            }
+
+            const payload = {
+                ...newHero,
+                image_url: finalImageUrl
+            };
 
             const res = await fetch(getApiUrl("/api/heroes"), {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(payload)
             });
 
-            if (!res.ok) throw new Error("Deployment failed");
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || "Deployment failed");
+            }
             
             setNewHero({ title: '', subtitle: '', description: '', discount: '', accent_color: '#ccff00' });
             setSelectedFile(null);

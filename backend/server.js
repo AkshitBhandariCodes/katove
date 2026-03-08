@@ -654,14 +654,35 @@ app.post('/api/orders', async (req, res) => {
 
     // Handle referral conversion
     if (referral_code) {
-      const { data: affiliate } = await supabase
-        .from('affiliates')
-        .select('id, commission_rate')
-        .eq('referral_code', referral_code)
-        .eq('status', 'approved')
+      // 1. Check if it's a product-specific link code
+      const { data: refLink } = await supabase
+        .from('referral_links')
+        .select('affiliate_id')
+        .eq('url_code', referral_code)
         .single();
 
-      if (affiliate) {
+      let targetAffiliateId = refLink ? refLink.affiliate_id : null;
+      
+      // 2. If not a link code, check if it's a general affiliate referral_code
+      if (!targetAffiliateId) {
+        const { data: affByCode } = await supabase
+          .from('affiliates')
+          .select('id')
+          .eq('referral_code', referral_code)
+          .eq('status', 'approved')
+          .single();
+        if (affByCode) targetAffiliateId = affByCode.id;
+      }
+
+      if (targetAffiliateId) {
+        const { data: affiliate } = await supabase
+          .from('affiliates')
+          .select('id, commission_rate')
+          .eq('id', targetAffiliateId)
+          .eq('status', 'approved')
+          .single();
+
+        if (affiliate) {
         const commissionAmount = (parseFloat(total) * affiliate.commission_rate / 100);
 
         await supabase.from('referral_conversions').insert({
@@ -676,16 +697,26 @@ app.post('/api/orders', async (req, res) => {
           aff_id: affiliate.id,
           sale_amount: parseFloat(total),
           comm_amount: commissionAmount
-        }).catch(() => {
-          // If RPC doesn't exist yet, update manually
-          supabase
+        }).catch(async (rpcErr) => {
+          console.error('RPC increment_affiliate_stats error, falling back to manual update:', rpcErr);
+          // Manual fallback if RPC fails
+          const { data: currentAff } = await supabase
             .from('affiliates')
-            .update({
-              total_sales: supabase.rpc ? undefined : 0, // fallback
-              total_revenue: supabase.rpc ? undefined : 0,
-              total_commission: supabase.rpc ? undefined : 0
-            })
-            .eq('id', affiliate.id);
+            .select('total_sales, total_revenue, total_commission')
+            .eq('id', affiliate.id)
+            .single();
+
+          if (currentAff) {
+            await supabase
+              .from('affiliates')
+              .update({
+                total_sales: (currentAff.total_sales || 0) + 1,
+                total_revenue: (parseFloat(currentAff.total_revenue || 0) + parseFloat(total)),
+                total_commission: (parseFloat(currentAff.total_commission || 0) + commissionAmount),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', affiliate.id);
+          }
         });
       }
     }
