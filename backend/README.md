@@ -37,6 +37,18 @@ The server runs on `http://localhost:3001` by default.
 
 ## Deploy
 
+### Vercel (Serverless)
+
+The backend includes a Vercel-compatible configuration so it can run as a serverless function.
+
+1. Push the `backend/` directory to a Git repository (or use a mono-repo and set the **root directory** to `backend`).
+2. Import the repo in [Vercel](https://vercel.com).
+3. Add all environment variables from `.env.example` in **Settings → Environment Variables**.
+4. Set `CORS_ORIGIN` to your deployed frontend URL (e.g. `https://katove.vercel.app`).
+5. Deploy — Vercel will use `vercel.json` and route all requests through the serverless function in `api/index.js`.
+
+> **Note:** Vercel serverless functions have execution-time limits (10 s on Hobby, 60 s on Pro). All endpoints in this API are fast database queries so they work well in a serverless model.
+
 ### Docker
 
 ```bash

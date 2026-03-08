@@ -84,8 +84,16 @@ cd katove-frontend && git init && git add . && git commit -m "Initial commit"
 | Service | Platform | Why |
 |---|---|---|
 | **Frontend** | [Vercel](https://vercel.com) | Zero-config Next.js hosting, automatic deployments |
-| **Backend** | [Railway](https://railway.app) or [Render](https://render.com) | Easy Node.js hosting with environment variable management |
+| **Backend** | [Vercel](https://vercel.com), [Railway](https://railway.app), or [Render](https://render.com) | Vercel serverless or traditional Node.js hosting |
 | **Database** | [Supabase](https://supabase.com) | Already integrated — PostgreSQL + Auth + Storage |
+
+### Deploy Both to Vercel
+
+Both services include `vercel.json` configurations and can be deployed as **two separate Vercel projects** from this mono-repo:
+
+1. **Backend**: Create a Vercel project, set the **Root Directory** to `backend`, add env vars from `backend/.env.example`.
+2. **Frontend**: Create a second Vercel project, set the **Root Directory** to `frontend`, add env vars from `frontend/.env.example`.
+3. **Connect them**: Set `NEXT_PUBLIC_API_URL` in the frontend project to the backend's Vercel URL, and set `CORS_ORIGIN` in the backend project to the frontend's Vercel URL.
 
 ### Connecting the Services
 
