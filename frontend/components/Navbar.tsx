@@ -58,6 +58,7 @@ export function Navbar() {
             <NavLink href="/collections">Arsenal</NavLink>
             <NavLink href="/track">Track</NavLink>
             <NavLink href="/installments">Finance</NavLink>
+            <NavLink href="/affiliate">Partners</NavLink>
             <NavLink href="/contact">Support</NavLink>
             <div className="pl-4 border-l border-white/10 relative">
               <button 
@@ -247,7 +248,7 @@ export function Navbar() {
                     <MobileNavLink href="/collections" onClick={() => setIsMobileMenuOpen(false)}>Arsenal</MobileNavLink>
                     <MobileNavLink href="/track" onClick={() => setIsMobileMenuOpen(false)}>Track Cargo</MobileNavLink>
                     <MobileNavLink href="/installments" onClick={() => setIsMobileMenuOpen(false)}>Financing</MobileNavLink>
-                    <MobileNavLink href="/affiliates" onClick={() => setIsMobileMenuOpen(false)}>Creator Hub</MobileNavLink>
+                    <MobileNavLink href="/affiliate" onClick={() => setIsMobileMenuOpen(false)}>Creator Hub</MobileNavLink>
                     <MobileNavLink href="/contact" onClick={() => setIsMobileMenuOpen(false)}>Intel / Support</MobileNavLink>
                  </nav>
 

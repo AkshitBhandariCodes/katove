@@ -92,7 +92,7 @@ export function Hero() {
     return (currentIndex + offset + dynamicSlides.length) % dynamicSlides.length;
   };
 
-  if (loading || dynamicSlides.length === 0) {
+  if (loading) {
     return (
       <section className="relative w-full h-screen pt-24 pb-12 overflow-hidden flex items-center justify-center bg-[#050505]">
         <div className="animate-pulse flex space-x-4">
@@ -104,6 +104,10 @@ export function Hero() {
         </div>
       </section>
     );
+  }
+
+  if (dynamicSlides.length === 0) {
+    return null; // Return absolutely nothing so the page flows correctly without a giant skeleton screen.
   }
 
   const currentSlide = dynamicSlides[currentIndex];

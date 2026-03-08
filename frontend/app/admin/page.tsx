@@ -1284,6 +1284,12 @@ function HeroListManager() {
 
     const handleAddHero = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (heroes.length >= 5) {
+            alert("Maximum fleet capacity reached (5). Please decommission an active asset first.");
+            return;
+        }
+
         if (!selectedFile && !newHero.image_url) {
             alert("Image is required for deployment");
             return;
@@ -1387,8 +1393,8 @@ function HeroListManager() {
                         </div>
                     </div>
 
-                    <button type="submit" disabled={isAdding} className="w-full bg-white text-black font-black py-4 rounded-2xl hover:bg-[var(--primary-color)] transition-all uppercase text-sm tracking-tighter">
-                        {isAdding ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Deploy Asset"}
+                    <button type="submit" disabled={isAdding || heroes.length >= 5} className="w-full bg-white disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-black py-4 rounded-2xl hover:bg-[var(--primary-color)] transition-all uppercase text-sm tracking-tighter mt-4">
+                        {isAdding ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : heroes.length >= 5 ? "Fleet Full (Max 5)" : "Deploy Asset"}
                     </button>
                 </form>
 

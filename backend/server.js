@@ -1217,17 +1217,13 @@ app.get('/api/r/:code', async (req, res) => {
       user_agent: req.headers['user-agent']
     });
 
-    // Update click count
-    await supabase
-      .from('referral_links')
-      .update({ clicks: supabase.sql`clicks + 1` })
-      .eq('id', link.id);
-
-    // Update affiliate total clicks
-    await supabase
-      .from('affiliates')
-      .update({ total_clicks: supabase.sql`total_clicks + 1` })
-      .eq('id', link.affiliate_id);
+    // Increment clicks safely via RPC
+    await supabase.rpc('increment_referral_click', {
+      link_uuid: link.id,
+      aff_uuid: link.affiliate_id
+    }).catch(err => {
+       console.error("RPC Click Error:", err);
+    });
 
     // Redirect
     const frontendUrl = process.env.CORS_ORIGIN || 'http://localhost:3000';
