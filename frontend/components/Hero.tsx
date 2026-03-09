@@ -4,11 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import heroImage1 from "@/assets/image copy 4.png";
+import heroImage2 from "@/assets/image copy 5.png";
+import heroImage3 from "@/assets/image copy 2.png";
 
 const slides = [
   {
     id: 1,
-    image: "/hero-assets/hero-pc.png",
+    image: heroImage1,
     subtitle: "New Release",
     title: "Check Out\nThe New\nGaming PCs!",
     description: "More than a processor—it's the engine behind your gameplay and performance.",
@@ -17,7 +20,7 @@ const slides = [
   },
   {
     id: 2,
-    image: "/hero-assets/hero-chair.png",
+    image: heroImage2,
     subtitle: "Ergonomic Design",
     title: "Level Up\nYour Comfort\nZone",
     description: "Experience the ultimate in gaming comfort with our new futuristic ergonomic chairs.",
@@ -26,7 +29,7 @@ const slides = [
   },
   {
     id: 3,
-    image: "/hero-assets/hero-headset.png",
+    image: heroImage3,
     subtitle: "Immersive Audio",
     title: "Hear Every\nFootstep\nClearly",
     description: "Precision spatial audio that puts you right in the center of the action.",

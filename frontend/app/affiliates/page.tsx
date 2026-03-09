@@ -2,195 +2,182 @@
 
 import React, { useState, useEffect } from "react";
 import { getApiUrl } from "@/utils/api";
-import Link from "next/link";
-import { Copy, TrendingUp, Users, DollarSign, ArrowRight, Share2, Check } from "lucide-react";
-import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { TrendingUp, Users, DollarSign, Link as LinkIcon, BarChart3, ArrowRight, Loader2, CheckCircle } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { useAuth } from "@/context/AuthContext";
 
-interface AffiliateData {
-    id: string;
-    type: string;
-    referral_code: string;
-    commission_rate: number;
-    status: string;
-    total_clicks: number;
-    total_sales: number;
-    total_revenue: number;
-    total_commission: number;
-}
-
-export default function AffiliatesPage() {
+export default function AffiliatesLandingPage() {
   const { user, token, isLoading: authLoading } = useAuth();
-  const [data, setData] = useState<AffiliateData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [roleMode, setRoleMode] = useState<'content_creator' | 'sales_manager'>('content_creator');
   const [registering, setRegistering] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [checkingStatus, setCheckingStatus] = useState(true);
 
   useEffect(() => {
-    // Wait for auth to finish loading before making any decisions
     if (authLoading) return;
-
     if (user && token) {
-        fetch(getApiUrl("/api/affiliates/dashboard"), {
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
+      // Check if already an affiliate - redirect to dashboard
+      fetch(getApiUrl("/api/affiliates/dashboard"), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
         .then(res => {
-            if (res.ok) return res.json();
-            throw new Error("Not an affiliate");
+          if (res.ok) {
+            router.push('/affiliate');
+          } else {
+            setCheckingStatus(false);
+          }
         })
-        .then(d => { setData(d); setLoading(false); })
-        .catch(() => setLoading(false));
+        .catch(() => setCheckingStatus(false));
     } else {
-        setLoading(false);
+      setCheckingStatus(false);
     }
-  }, [user, token, authLoading]);
+  }, [user, token, authLoading, router]);
 
   const handleRegister = async () => {
-      setRegistering(true);
-      try {
-          const res = await fetch(getApiUrl("/api/affiliates/register"), {
-              method: 'POST',
-              headers: { 
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}` 
-              },
-              body: JSON.stringify({ type: 'content_creator' })
-          });
-          if (!res.ok) throw new Error('Registration failed');
-          // Re-fetch dashboard to get the full data with links
-          const dashRes = await fetch(getApiUrl("/api/affiliates/dashboard"), {
-              headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (dashRes.ok) {
-              const d = await dashRes.json();
-              setData(d);
-          }
-      } catch (e) {
-          console.error(e);
-      } finally {
-          setRegistering(false);
-      }
+    if (!user || !token) return;
+    setRegistering(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch(getApiUrl("/api/affiliates/register"), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ type: roleMode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Registration failed');
+      router.push('/affiliate');
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    } finally {
+      setRegistering(false);
+    }
   };
 
-  const copyLink = () => {
-      if (data?.referral_code) {
-          navigator.clipboard.writeText(`${window.location.origin}/?ref=${data.referral_code}`);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-      }
-  };
-
-  if (loading) return <div className="min-h-screen bg-[#050505] flex justify-center items-center text-[#ccff00] font-mono text-sm uppercase">Loading Hub Data...</div>;
+  if (checkingStatus || authLoading) {
+    return (
+      <main className="min-h-screen bg-[#050505] flex justify-center items-center">
+        <Navbar />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--primary-color)]" />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#050505] pt-32 pb-20 text-white">
-       <Navbar /> 
-       
-       <div className="max-w-[1200px] mx-auto px-6">
-            {!data ? (
-                /* Registration / Landing */
-                <div className="text-center max-w-3xl mx-auto mt-10">
-                    <span className="bg-[#ccff00]/10 text-[#ccff00] px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Creator Program</span>
-                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter italic mt-6 mb-4 uppercase">
-                        MONETIZE YOUR <span className="text-[#ccff00]">INFLUENCE</span>
-                    </h1>
-                    <p className="text-gray-400 text-lg mb-12">
-                        Receive up to 10% commission on every secure deployment initiated through your unique network link. Monitor telemetry via your personal command center.
-                    </p>
-                    
-                    {!user ? (
-                        <div className="bg-[#111] border border-white/5 p-8 rounded-3xl max-w-sm mx-auto">
-                            <h3 className="text-xl font-bold mb-4">Authentication Required</h3>
-                            <p className="text-sm text-gray-400 mb-6">You must establish a secure connection (log in) before applying for the Creator tier.</p>
-                            <button className="w-full bg-white text-black font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-gray-200 transition-colors">
-                                Access Mainframe
-                            </button>
-                        </div>
-                    ) : (
-                        <button 
-                            onClick={handleRegister}
-                            disabled={registering}
-                            className="bg-[#ccff00] text-black text-lg font-black uppercase tracking-widest px-12 py-5 rounded-2xl hover:bg-[#b3e600] transition-transform hover:scale-105"
-                        >
-                            {registering ? 'Processing...' : 'Apply for Creator Tier'}
-                        </button>
-                    )}
+      <Navbar />
+      <div className="max-w-[1100px] mx-auto px-6">
+        {/* Hero */}
+        <div className="text-center max-w-3xl mx-auto mb-20">
+          <span className="bg-[var(--primary-color)]/10 text-[var(--primary-color)] px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Partner Program</span>
+          <h1 className="text-5xl md:text-7xl font-black tracking-tighter italic mt-6 mb-4 uppercase">
+            MONETIZE YOUR <span className="text-[var(--primary-color)]">INFLUENCE</span>
+          </h1>
+          <p className="text-gray-400 text-lg max-w-xl mx-auto">
+            Earn commission on every sale through your unique referral links. Track clicks, conversions, and revenue in real-time from your personal dashboard.
+          </p>
+        </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 text-left">
-                        {[
-                            { i: Users, t: "Build Network", d: "Share custom links via your existing channels." },
-                            { i: TrendingUp, t: "Track Metrics", d: "Real-time analytics on clicks and conversions." },
-                            { i: DollarSign, t: "Earn Revenue", d: "10% baseline commission on valid sales." }
-                        ].map((m, idx) => (
-                            <div key={idx} className="bg-[#0a0a0a] p-8 rounded-3xl border border-white/5">
-                                <m.i className="w-10 h-10 text-[#ccff00] mb-4" />
-                                <h3 className="text-lg font-bold mb-2 uppercase">{m.t}</h3>
-                                <p className="text-sm text-gray-500">{m.d}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+        {/* How it works */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+          {[
+            { icon: LinkIcon, step: "01", title: "Share Links", desc: "Get unique links for the homepage and every product. Share via socials, email, or your website." },
+            { icon: BarChart3, step: "02", title: "Track Everything", desc: "Real-time analytics: clicks per product, conversions, revenue, and commission earned." },
+            { icon: DollarSign, step: "03", title: "Earn Commission", desc: "Earn a percentage on every sale you refer. Commissions are tracked and attributed automatically." },
+          ].map((item, idx) => (
+            <div key={idx} className="bg-[#0a0a0a] p-8 rounded-3xl border border-white/5 relative overflow-hidden group hover:border-[var(--primary-color)]/20 transition-all">
+              <span className="text-[80px] font-black text-white/[0.02] absolute -top-4 -right-2 group-hover:text-[var(--primary-color)]/[0.05] transition-colors">{item.step}</span>
+              <item.icon className="w-10 h-10 text-[var(--primary-color)] mb-5" />
+              <h3 className="text-lg font-bold mb-2 uppercase">{item.title}</h3>
+              <p className="text-sm text-gray-500">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Stats highlights */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-20">
+          {[
+            { label: "Commission Rate", val: "Up to 10%" },
+            { label: "Cookie Duration", val: "30 Days" },
+            { label: "Payout Cycle", val: "Monthly" },
+            { label: "Link Types", val: "Product + General" },
+          ].map((s, i) => (
+            <div key={i} className="bg-[#111] border border-white/5 p-6 rounded-2xl text-center">
+              <div className="text-2xl font-mono font-black text-[var(--primary-color)]">{s.val}</div>
+              <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mt-2">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Registration */}
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-8 md:p-12">
+            {!user ? (
+              <div className="text-center">
+                <Users className="w-16 h-16 text-[var(--primary-color)]/30 mx-auto mb-6" />
+                <h3 className="text-2xl font-bold mb-4">Sign In to Apply</h3>
+                <p className="text-gray-400 mb-6">You need an account to join the partner program. Sign in or create an account first.</p>
+              </div>
             ) : (
-                /* Creator Dashboard */
-                <div className="space-y-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
-                        <div>
-                            <h1 className="text-4xl md:text-6xl font-black tracking-tighter italic uppercase">
-                                COMMAND <span className="text-[#ccff00]">CENTER</span>
-                            </h1>
-                            <p className="text-gray-400 font-mono text-sm mt-2">Active Operative: {user?.name}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-lg">Status: <span className="text-[#ccff00]">{data.status || 'pending'}</span></span>
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-lg">Rate: <span className="text-white">{data.commission_rate ?? 10}%</span></span>
-                        </div>
-                    </div>
+              <>
+                <h3 className="text-2xl font-bold text-center mb-2 uppercase tracking-tight">Join the Program</h3>
+                <p className="text-sm text-gray-500 text-center mb-8">Choose your role and start earning</p>
 
-                    <div className="bg-[#ccff00]/10 border border-[#ccff00]/20 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex-1">
-                            <span className="text-xs font-black text-[#ccff00] uppercase tracking-widest block mb-2">Your Unique Deployment Broadcast Link</span>
-                            <div className="text-lg md:text-xl font-mono text-white break-all">
-                                {typeof window !== 'undefined' ? window.location.origin : ''}/?ref={data.referral_code || 'loading...'}
-                            </div>
-                        </div>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={copyLink}
-                                className={`flex items-center gap-2 px-6 py-4 rounded-xl font-bold transition-all ${copied ? 'bg-[#ccff00] text-black' : 'bg-[#111] text-white hover:bg-white/10'}`}
-                            >
-                                {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                                {copied ? 'COPIED' : 'COPY'}
-                            </button>
-                            <button className="flex items-center gap-2 px-6 py-4 rounded-xl bg-[#ccff00] text-black font-bold hover:bg-[#b3e600] transition-colors uppercase text-sm tracking-widest">
-                                <Share2 className="w-5 h-5" /> Broadcast
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard title="Total Signals (Clicks)" value={data.total_clicks ?? 0} icon={TrendingUp} />
-                        <StatCard title="Confirmed Deployments" value={data.total_sales ?? 0} icon={Users} />
-                        <StatCard title="Network Revenue" value={`$${parseFloat(String(data.total_revenue ?? 0)).toFixed(2)}`} icon={ArrowRight} isMoney />
-                        <StatCard title="Pending Commission" value={`$${parseFloat(String(data.total_commission ?? 0)).toFixed(2)}`} icon={DollarSign} isMoney highlight />
-                    </div>
+                <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                  <label className={`cursor-pointer border-2 rounded-2xl p-6 flex-1 transition-all ${roleMode === 'content_creator' ? 'border-[var(--primary-color)] bg-[var(--primary-color)]/5' : 'border-white/10 bg-[#111] hover:border-white/30'}`}>
+                    <input type="radio" name="role" value="content_creator" checked={roleMode === 'content_creator'} onChange={() => setRoleMode('content_creator')} className="hidden" />
+                    <div className="font-bold text-white text-lg mb-1">Content Creator</div>
+                    <p className="text-xs text-gray-500 font-mono">Influencers, bloggers, YouTubers</p>
+                  </label>
+                  <label className={`cursor-pointer border-2 rounded-2xl p-6 flex-1 transition-all ${roleMode === 'sales_manager' ? 'border-[var(--primary-color)] bg-[var(--primary-color)]/5' : 'border-white/10 bg-[#111] hover:border-white/30'}`}>
+                    <input type="radio" name="role" value="sales_manager" checked={roleMode === 'sales_manager'} onChange={() => setRoleMode('sales_manager')} className="hidden" />
+                    <div className="font-bold text-white text-lg mb-1">Sales Manager</div>
+                    <p className="text-xs text-gray-500 font-mono">B2B referrers, resellers</p>
+                  </label>
                 </div>
+
+                {errorMsg && <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 p-4 rounded-xl mb-6">{errorMsg}</div>}
+
+                <button
+                  onClick={handleRegister}
+                  disabled={registering}
+                  className="w-full py-4 bg-[var(--primary-color)] text-black font-black uppercase text-sm tracking-widest rounded-xl hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle className="w-5 h-5" /> Apply Now</>}
+                </button>
+              </>
             )}
-       </div>
+          </div>
+        </div>
+
+        {/* Two types comparison */}
+        <div className="mt-20 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-purple-500/5 border border-purple-500/10 rounded-3xl p-8">
+            <div className="text-purple-400 text-[10px] font-black uppercase tracking-widest mb-4">Content Creator</div>
+            <ul className="space-y-3 text-sm text-gray-400">
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" /> Personal dashboard with real-time analytics</li>
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" /> Unique links for each product</li>
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" /> General referral link for homepage</li>
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" /> Per-product click and sales tracking</li>
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" /> Commission on all referred sales</li>
+            </ul>
+          </div>
+          <div className="bg-blue-500/5 border border-blue-500/10 rounded-3xl p-8">
+            <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-4">Sales Manager</div>
+            <ul className="space-y-3 text-sm text-gray-400">
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" /> Full partner dashboard & reporting</li>
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" /> Custom product referral links</li>
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" /> Bulk referral tracking</li>
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" /> Revenue and commission analytics</li>
+              <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" /> Dedicated commission rate</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </main>
   );
-}
-
-function StatCard({ title, value, icon: Icon, isMoney, highlight }: any) {
-    return (
-        <div className={`p-8 rounded-[2rem] border ${highlight ? 'bg-[#ccff00]/5 border-[#ccff00]/20' : 'bg-[#0a0a0a] border-white/5'}`}>
-            <div className="flex items-center justify-between mb-6">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{title}</span>
-                <Icon className={`w-5 h-5 ${highlight ? 'text-[#ccff00]' : 'text-gray-500'}`} />
-            </div>
-            <div className={`text-4xl font-mono font-black ${highlight ? 'text-[#ccff00]' : 'text-white'}`}>
-                {value}
-            </div>
-        </div>
-    );
 }

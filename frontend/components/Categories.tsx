@@ -2,6 +2,10 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import catMice from "@/assets/image copy 2.png";
+import catKeyboards from "@/assets/image copy.png";
+import catChairs from "@/assets/image.png";
+import catPC from "@/assets/image copy 5.png";
 
 export function Categories() {
   return (
@@ -31,7 +35,7 @@ export function Categories() {
                     </button>
                 </div>
                 <div className="absolute inset-0 pt-32 flex items-center justify-center">
-                    <Image src="/categories/pc_view.png" alt="Gaming PC" width={500} height={500} className="object-contain group-hover:scale-105 transition-transform duration-700" />
+                    <Image src={catPC} alt="Gaming PC" width={500} height={500} className="object-contain group-hover:scale-105 transition-transform duration-700" />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
             </motion.div>
@@ -56,7 +60,7 @@ export function Categories() {
                             Shop Now
                         </button>
                         <div className="flex-1 w-full relative">
-                            <Image src="/categories/mice_view.png" alt="Mouse" fill className="object-contain p-2 group-hover:scale-110 transition-transform" />
+                            <Image src={catMice} alt="Mouse" fill className="object-contain p-2 group-hover:scale-110 transition-transform" />
                         </div>
                     </motion.div>
 
@@ -77,7 +81,7 @@ export function Categories() {
                             Shop Now
                         </button>
                          <div className="flex-1 w-full relative">
-                            <Image src="/categories/keyboard_view.png" alt="Keyboard" fill className="object-contain p-2 group-hover:scale-110 transition-transform" />
+                            <Image src={catKeyboards} alt="Keyboard" fill className="object-contain p-2 group-hover:scale-110 transition-transform" />
                         </div>
                     </motion.div>
                 </div>
@@ -101,7 +105,7 @@ export function Categories() {
                         </button>
                     </div>
                      <div className="absolute right-0 top-0 bottom-0 w-1/2">
-                        <Image src="/categories/chair_view.png" alt="Chair" fill className="object-contain p-4 group-hover:scale-105 transition-transform" />
+                        <Image src={catChairs} alt="Chair" fill className="object-contain p-4 group-hover:scale-105 transition-transform" />
                     </div>
                 </motion.div>
             </div>

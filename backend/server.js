@@ -657,11 +657,12 @@ app.post('/api/orders', async (req, res) => {
       // 1. Check if it's a product-specific link code
       const { data: refLink } = await supabase
         .from('referral_links')
-        .select('affiliate_id')
+        .select('id, affiliate_id, product_id')
         .eq('url_code', referral_code)
         .single();
 
       let targetAffiliateId = refLink ? refLink.affiliate_id : null;
+      let targetLinkId = refLink ? refLink.id : null;
       
       // 2. If not a link code, check if it's a general affiliate referral_code
       if (!targetAffiliateId) {
@@ -671,7 +672,17 @@ app.post('/api/orders', async (req, res) => {
           .eq('referral_code', referral_code)
           .eq('status', 'approved')
           .single();
-        if (affByCode) targetAffiliateId = affByCode.id;
+        if (affByCode) {
+          targetAffiliateId = affByCode.id;
+          // Find the general homepage link for this affiliate
+          const { data: generalLink } = await supabase
+            .from('referral_links')
+            .select('id')
+            .eq('affiliate_id', affByCode.id)
+            .is('product_id', null)
+            .single();
+          if (generalLink) targetLinkId = generalLink.id;
+        }
       }
 
       if (targetAffiliateId) {
@@ -683,42 +694,49 @@ app.post('/api/orders', async (req, res) => {
           .single();
 
         if (affiliate) {
-        const commissionAmount = (parseFloat(total) * affiliate.commission_rate / 100);
+          const commissionAmount = (parseFloat(total) * affiliate.commission_rate / 100);
 
-        await supabase.from('referral_conversions').insert({
-          affiliate_id: affiliate.id,
-          order_id: order.id,
-          order_total: parseFloat(total),
-          commission_amount: commissionAmount
-        });
+          await supabase.from('referral_conversions').insert({
+            affiliate_id: affiliate.id,
+            order_id: order.id,
+            referral_link_id: targetLinkId || null,
+            order_total: parseFloat(total),
+            commission_amount: commissionAmount
+          });
 
-        // Update affiliate stats
-        await supabase.rpc('increment_affiliate_stats', {
-          aff_id: affiliate.id,
-          sale_amount: parseFloat(total),
-          comm_amount: commissionAmount
-        }).catch(async (rpcErr) => {
-          console.error('RPC increment_affiliate_stats error, falling back to manual update:', rpcErr);
-          // Manual fallback if RPC fails
-          const { data: currentAff } = await supabase
-            .from('affiliates')
-            .select('total_sales, total_revenue, total_commission')
-            .eq('id', affiliate.id)
-            .single();
-
-          if (currentAff) {
-            await supabase
-              .from('affiliates')
-              .update({
-                total_sales: (currentAff.total_sales || 0) + 1,
-                total_revenue: (parseFloat(currentAff.total_revenue || 0) + parseFloat(total)),
-                total_commission: (parseFloat(currentAff.total_commission || 0) + commissionAmount),
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', affiliate.id);
+          // Increment link conversions count
+          if (targetLinkId) {
+            await supabase.rpc('increment_link_conversion', {
+              link_uuid: targetLinkId
+            }).catch(err => console.error('Link conversion increment error:', err));
           }
-        });
-      }
+
+          // Update affiliate stats
+          await supabase.rpc('increment_affiliate_stats', {
+            aff_id: affiliate.id,
+            sale_amount: parseFloat(total),
+            comm_amount: commissionAmount
+          }).catch(async (rpcErr) => {
+            console.error('RPC increment_affiliate_stats error, falling back to manual update:', rpcErr);
+            const { data: currentAff } = await supabase
+              .from('affiliates')
+              .select('total_sales, total_revenue, total_commission')
+              .eq('id', affiliate.id)
+              .single();
+
+            if (currentAff) {
+              await supabase
+                .from('affiliates')
+                .update({
+                  total_sales: (currentAff.total_sales || 0) + 1,
+                  total_revenue: (parseFloat(currentAff.total_revenue || 0) + parseFloat(total)),
+                  total_commission: (parseFloat(currentAff.total_commission || 0) + commissionAmount),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', affiliate.id);
+            }
+          });
+        }
       }
     }
 
@@ -1173,14 +1191,38 @@ app.get('/api/affiliates/dashboard', authenticateToken, async (req, res) => {
         *,
         links:referral_links(
           id, product_id, url_code, clicks, conversions,
-          product:products(id, name, slug)
+          product:products(id, name, slug, selling_price)
         ),
-        conversions:referral_conversions(*)
+        conversions:referral_conversions(
+          id, order_id, referral_link_id, order_total, commission_amount, created_at
+        )
       `)
       .eq('user_id', req.user.id)
       .single();
 
     if (error || !affiliate) return res.status(404).json({ message: 'Affiliate account not found' });
+
+    // Compute per-link revenue/commission from conversions
+    const linkStats = {};
+    if (affiliate.conversions) {
+      affiliate.conversions.forEach(c => {
+        const lid = c.referral_link_id || 'general';
+        if (!linkStats[lid]) linkStats[lid] = { revenue: 0, commission: 0, sales: 0 };
+        linkStats[lid].revenue += parseFloat(c.order_total || 0);
+        linkStats[lid].commission += parseFloat(c.commission_amount || 0);
+        linkStats[lid].sales += 1;
+      });
+    }
+
+    // Enrich links with per-link revenue data
+    if (affiliate.links) {
+      affiliate.links = affiliate.links.map(link => ({
+        ...link,
+        revenue: linkStats[link.id]?.revenue || 0,
+        commission: linkStats[link.id]?.commission || 0,
+        sales: linkStats[link.id]?.sales || link.conversions || 0
+      }));
+    }
 
     res.json(affiliate);
   } catch (err) {
@@ -1228,6 +1270,80 @@ app.post('/api/affiliates/links', authenticateToken, async (req, res) => {
     res.status(201).json(data);
   } catch (err) {
     res.status(500).json({ message: 'Failed to create referral link' });
+  }
+});
+
+// Frontend click tracking (called by ReferralTracker component)
+app.post('/api/affiliates/track-click', async (req, res) => {
+  try {
+    const { ref } = req.body;
+    if (!ref) return res.status(400).json({ message: 'Missing ref code' });
+
+    // Check if it's a link url_code
+    const { data: link } = await supabase
+      .from('referral_links')
+      .select('id, affiliate_id')
+      .eq('url_code', ref)
+      .single();
+
+    if (link) {
+      await supabase.from('referral_clicks').insert({
+        link_id: link.id,
+        ip_address: req.ip,
+        user_agent: req.headers['user-agent']
+      });
+      await supabase.rpc('increment_referral_click', {
+        link_uuid: link.id,
+        aff_uuid: link.affiliate_id
+      }).catch(err => console.error('RPC Click Error:', err));
+      return res.json({ tracked: true });
+    }
+
+    // Check if it's a general referral_code
+    const { data: aff } = await supabase
+      .from('affiliates')
+      .select('id')
+      .eq('referral_code', ref)
+      .single();
+
+    if (aff) {
+      // Find or create the general homepage link
+      let { data: generalLink } = await supabase
+        .from('referral_links')
+        .select('id')
+        .eq('affiliate_id', aff.id)
+        .is('product_id', null)
+        .single();
+
+      if (generalLink) {
+        await supabase.from('referral_clicks').insert({
+          link_id: generalLink.id,
+          ip_address: req.ip,
+          user_agent: req.headers['user-agent']
+        });
+        await supabase.rpc('increment_referral_click', {
+          link_uuid: generalLink.id,
+          aff_uuid: aff.id
+        }).catch(err => console.error('RPC Click Error:', err));
+      } else {
+        // Just increment affiliate total_clicks
+        await supabase
+          .from('affiliates')
+          .update({ total_clicks: supabase.rpc ? undefined : 0 })
+          .eq('id', aff.id);
+        // Direct increment
+        const { data: curr } = await supabase.from('affiliates').select('total_clicks').eq('id', aff.id).single();
+        if (curr) {
+          await supabase.from('affiliates').update({ total_clicks: (curr.total_clicks || 0) + 1 }).eq('id', aff.id);
+        }
+      }
+      return res.json({ tracked: true });
+    }
+
+    res.json({ tracked: false });
+  } catch (err) {
+    console.error('Track click error:', err);
+    res.json({ tracked: false });
   }
 });
 
@@ -1285,7 +1401,7 @@ app.get('/api/affiliates', authenticateAdmin, async (req, res) => {
         *,
         user:profiles(id, name, email, phone),
         links:referral_links(id, product_id, url_code, clicks, conversions),
-        conversions:referral_conversions(*)
+        conversions:referral_conversions(id, order_id, referral_link_id, order_total, commission_amount, created_at)
       `)
       .order('created_at', { ascending: false });
 
@@ -1315,6 +1431,46 @@ app.put('/api/affiliates/:id/status', authenticateAdmin, async (req, res) => {
     res.json(data);
   } catch (err) {
     res.status(500).json({ message: 'Failed to update affiliate' });
+  }
+});
+
+// Admin: get/update default commission rates
+app.get('/api/affiliates/commission-settings', authenticateAdmin, async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from('site_settings')
+      .select('key, value')
+      .in('key', ['commission_rate_content_creator', 'commission_rate_sales_manager']);
+
+    const settings = {};
+    (data || []).forEach(s => { settings[s.key] = s.value; });
+    res.json({
+      content_creator: parseFloat(settings.commission_rate_content_creator || '10'),
+      sales_manager: parseFloat(settings.commission_rate_sales_manager || '8')
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch commission settings' });
+  }
+});
+
+app.put('/api/affiliates/commission-settings', authenticateAdmin, async (req, res) => {
+  try {
+    const { content_creator, sales_manager } = req.body;
+    if (content_creator !== undefined) {
+      await supabase.from('site_settings').upsert(
+        { key: 'commission_rate_content_creator', value: String(content_creator), updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+    }
+    if (sales_manager !== undefined) {
+      await supabase.from('site_settings').upsert(
+        { key: 'commission_rate_sales_manager', value: String(sales_manager), updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update commission settings' });
   }
 });
 

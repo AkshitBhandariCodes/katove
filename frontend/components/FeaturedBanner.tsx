@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import bannerImage from "@/assets/image copy 3.png";
 
 export function FeaturedBanner() {
   return (
@@ -10,7 +11,7 @@ export function FeaturedBanner() {
         {/* Background Image */}
         <div className="absolute inset-0">
              <Image 
-                src="/images/chip_banner.png" 
+                src={bannerImage} 
                 alt="Gaming Processor" 
                 fill 
                 className="object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000"

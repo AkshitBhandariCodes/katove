@@ -1158,12 +1158,16 @@ interface Affiliate {
     created_at: string;
     user?: { name: string; email: string; phone?: string };
     links?: { url_code: string; clicks: number; conversions: number; product_id?: string }[];
+    conversions?: { id: string; order_id: string; order_total: number; commission_amount: number; created_at: string }[];
 }
 
 function AffiliatesManager() {
     const { token } = useAuth();
     const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [defaultRates, setDefaultRates] = useState({ content_creator: 10, sales_manager: 8 });
+    const [savingRates, setSavingRates] = useState(false);
 
     const fetchAffiliates = async () => {
         try {
@@ -1179,7 +1183,22 @@ function AffiliatesManager() {
             setIsLoading(false);
         }
     };
-    useEffect(() => { fetchAffiliates(); }, []);
+
+    const fetchDefaultRates = async () => {
+        try {
+            const res = await fetch(getApiUrl("/api/affiliates/commission-settings"), {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setDefaultRates(data);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useEffect(() => { fetchAffiliates(); fetchDefaultRates(); }, []);
 
     const updateStatus = async (id: string, status: string) => {
         await fetch(getApiUrl(`/api/affiliates/${id}/status`), {
@@ -1197,7 +1216,36 @@ function AffiliatesManager() {
         fetchAffiliates();
     };
 
+    const saveDefaultRates = async () => {
+        setSavingRates(true);
+        try {
+            await fetch(getApiUrl("/api/affiliates/commission-settings"), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(defaultRates)
+            });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSavingRates(false);
+        }
+    };
+
     const getTypeBadge = (t: string) => t === 'sales_manager' ? 'text-blue-400 bg-blue-400/10' : 'text-purple-400 bg-purple-400/10';
+    const getStatusBadge = (s: string) => {
+        switch (s) {
+            case 'approved': return 'bg-green-500/20 text-green-400';
+            case 'pending': return 'bg-orange-500/20 text-orange-400';
+            case 'rejected': return 'bg-red-500/20 text-red-400';
+            case 'suspended': return 'bg-gray-500/20 text-gray-400';
+            default: return 'bg-white/5 text-gray-500';
+        }
+    };
+
+    const pendingCount = affiliates.filter(a => a.status === 'pending').length;
+    const approvedCount = affiliates.filter(a => a.status === 'approved').length;
+    const totalRevenue = affiliates.reduce((sum, a) => sum + parseFloat(String(a.total_revenue || 0)), 0);
+    const totalCommission = affiliates.reduce((sum, a) => sum + parseFloat(String(a.total_commission || 0)), 0);
 
     return (
         <div className="space-y-10">
@@ -1205,50 +1253,187 @@ function AffiliatesManager() {
                 <h2 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter">Affiliate <span className="text-[var(--primary-color)]">Network</span></h2>
                 <p className="text-gray-500 font-mono text-xs uppercase tracking-widest mt-2">{affiliates.length} Partners Registered</p>
             </header>
-            {isLoading ? <div className="text-center py-20"><Loader2 className="w-8 h-8 animate-spin text-[var(--primary-color)] mx-auto" /></div> : affiliates.length === 0 ? (
-                <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-20 text-center"><Users className="w-16 h-16 text-gray-800 mx-auto mb-4" /><h3 className="text-xl font-bold text-gray-600">No Affiliates Yet</h3></div>
+
+            {/* Overview Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-[#111] border border-white/5 p-5 rounded-2xl">
+                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Total Partners</div>
+                    <div className="text-2xl font-mono text-white font-black">{affiliates.length}</div>
+                </div>
+                <div className="bg-orange-500/5 border border-orange-500/10 p-5 rounded-2xl">
+                    <div className="text-[10px] text-orange-400 uppercase font-bold tracking-widest mb-1">Pending Approval</div>
+                    <div className="text-2xl font-mono text-orange-400 font-black">{pendingCount}</div>
+                </div>
+                <div className="bg-[#111] border border-white/5 p-5 rounded-2xl">
+                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Network Revenue</div>
+                    <div className="text-2xl font-mono text-[var(--primary-color)] font-black">${totalRevenue.toFixed(2)}</div>
+                </div>
+                <div className="bg-[var(--primary-color)]/5 border border-[var(--primary-color)]/10 p-5 rounded-2xl">
+                    <div className="text-[10px] text-[var(--primary-color)] uppercase font-bold tracking-widest mb-1">Total Commission</div>
+                    <div className="text-2xl font-mono text-[var(--primary-color)] font-black">${totalCommission.toFixed(2)}</div>
+                </div>
+            </div>
+
+            {/* Default Commission Rates */}
+            <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-6 md:p-8">
+                <h3 className="text-lg font-bold text-white uppercase tracking-tighter mb-4">Default Commission Rates</h3>
+                <p className="text-xs text-gray-500 mb-6">These rates are applied to new affiliates when they register. You can override individual rates below.</p>
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex-1">
+                        <label className="text-[10px] text-purple-400 uppercase font-bold tracking-widest block mb-2">Content Creator (%)</label>
+                        <input
+                            type="number" min="0" max="100" step="0.5"
+                            value={defaultRates.content_creator}
+                            onChange={e => setDefaultRates(prev => ({ ...prev, content_creator: parseFloat(e.target.value) || 0 }))}
+                            className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white font-mono focus:outline-none focus:border-[var(--primary-color)]"
+                        />
+                    </div>
+                    <div className="flex-1">
+                        <label className="text-[10px] text-blue-400 uppercase font-bold tracking-widest block mb-2">Sales Manager (%)</label>
+                        <input
+                            type="number" min="0" max="100" step="0.5"
+                            value={defaultRates.sales_manager}
+                            onChange={e => setDefaultRates(prev => ({ ...prev, sales_manager: parseFloat(e.target.value) || 0 }))}
+                            className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white font-mono focus:outline-none focus:border-[var(--primary-color)]"
+                        />
+                    </div>
+                    <button
+                        onClick={saveDefaultRates}
+                        disabled={savingRates}
+                        className="px-6 py-3 bg-[var(--primary-color)] text-black font-bold uppercase text-xs tracking-widest rounded-xl hover:brightness-110 transition-all disabled:opacity-50 shrink-0"
+                    >
+                        {savingRates ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Affiliate List */}
+            {isLoading ? (
+                <div className="text-center py-20"><Loader2 className="w-8 h-8 animate-spin text-[var(--primary-color)] mx-auto" /></div>
+            ) : affiliates.length === 0 ? (
+                <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-20 text-center">
+                    <Users className="w-16 h-16 text-gray-800 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-gray-600">No Affiliates Yet</h3>
+                </div>
             ) : (
-                <div className="grid gap-6">
-                    {affiliates.map(aff => (
-                        <div key={aff.id} className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-6 md:p-8 hover:border-[var(--primary-color)]/30 transition-all">
-                            <div className="flex flex-col md:flex-row gap-6 justify-between">
-                                <div className="space-y-3 flex-1">
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${getTypeBadge(aff.type)}`}>{aff.type.replace('_', ' ')}</span>
-                                        <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-2 py-1 rounded">Code: {aff.referral_code}</span>
-                                    </div>
-                                    <h3 className="text-xl font-bold text-white">{aff.user?.name || 'Unknown'} <span className="text-sm text-gray-500 font-normal">{aff.user?.email}</span></h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-3">
-                                        <div><div className="text-[10px] text-gray-500 uppercase font-bold">Clicks</div><div className="text-lg font-mono text-white font-bold">{aff.total_clicks}</div></div>
-                                        <div><div className="text-[10px] text-gray-500 uppercase font-bold">Sales</div><div className="text-lg font-mono text-white font-bold">{aff.total_sales}</div></div>
-                                        <div><div className="text-[10px] text-gray-500 uppercase font-bold">Revenue</div><div className="text-lg font-mono text-[var(--primary-color)] font-bold">{aff.total_revenue}</div></div>
-                                        <div><div className="text-[10px] text-gray-500 uppercase font-bold">Commission</div><div className="text-lg font-mono text-[var(--primary-color)] font-bold">{aff.total_commission}</div></div>
-                                        <div 
-                                          className="cursor-pointer group relative" 
-                                          onClick={() => {
-                                              const rate = prompt('Enter new commission rate (%)', String(aff.commission_rate));
-                                              if (rate !== null && !isNaN(Number(rate))) {
-                                                  updateCommission(aff.id, Number(rate));
-                                              }
-                                          }}
-                                          title="Click to edit commission rate"
-                                        >
-                                          <div className="text-[10px] text-gray-500 uppercase font-bold group-hover:text-white transition-colors">Rate ✎</div>
-                                          <div className="text-lg font-mono text-white font-bold border-b border-transparent group-hover:border-white/30 inline-block">{aff.commission_rate}%</div>
+                <div className="grid gap-4">
+                    {affiliates.map(aff => {
+                        const isExpanded = expandedId === aff.id;
+                        const affConversions = aff.conversions || [];
+                        const affLinks = aff.links || [];
+                        return (
+                            <div key={aff.id} className="bg-[#0a0a0a] border border-white/5 rounded-3xl overflow-hidden hover:border-[var(--primary-color)]/20 transition-all">
+                                <div className="p-6 md:p-8">
+                                    <div className="flex flex-col md:flex-row gap-6 justify-between">
+                                        <div className="space-y-3 flex-1">
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${getTypeBadge(aff.type)}`}>{aff.type.replace('_', ' ')}</span>
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${getStatusBadge(aff.status)}`}>{aff.status}</span>
+                                                <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-2 py-1 rounded">Code: {aff.referral_code}</span>
+                                            </div>
+                                            <h3 className="text-xl font-bold text-white">{aff.user?.name || 'Unknown'} <span className="text-sm text-gray-500 font-normal">{aff.user?.email}</span></h3>
+                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-3">
+                                                <div><div className="text-[10px] text-gray-500 uppercase font-bold">Clicks</div><div className="text-lg font-mono text-white font-bold">{aff.total_clicks}</div></div>
+                                                <div><div className="text-[10px] text-gray-500 uppercase font-bold">Sales</div><div className="text-lg font-mono text-white font-bold">{aff.total_sales}</div></div>
+                                                <div><div className="text-[10px] text-gray-500 uppercase font-bold">Revenue</div><div className="text-lg font-mono text-[var(--primary-color)] font-bold">${parseFloat(String(aff.total_revenue || 0)).toFixed(2)}</div></div>
+                                                <div><div className="text-[10px] text-gray-500 uppercase font-bold">Commission</div><div className="text-lg font-mono text-[var(--primary-color)] font-bold">${parseFloat(String(aff.total_commission || 0)).toFixed(2)}</div></div>
+                                                <div
+                                                    className="cursor-pointer group relative"
+                                                    onClick={() => {
+                                                        const rate = prompt('Enter new commission rate (%)', String(aff.commission_rate));
+                                                        if (rate !== null && !isNaN(Number(rate))) {
+                                                            updateCommission(aff.id, Number(rate));
+                                                        }
+                                                    }}
+                                                    title="Click to edit commission rate"
+                                                >
+                                                    <div className="text-[10px] text-gray-500 uppercase font-bold group-hover:text-white transition-colors">Rate ✎</div>
+                                                    <div className="text-lg font-mono text-white font-bold border-b border-transparent group-hover:border-white/30 inline-block">{aff.commission_rate}%</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2 min-w-[160px]">
+                                            <select value={aff.status} onChange={e => updateStatus(aff.id, e.target.value)} className="bg-[#111] text-white text-xs font-bold border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-[var(--primary-color)] cursor-pointer">
+                                                <option value="pending">Pending</option>
+                                                <option value="approved">Approved</option>
+                                                <option value="rejected">Rejected</option>
+                                                <option value="suspended">Suspended</option>
+                                            </select>
+                                            <button
+                                                onClick={() => setExpandedId(isExpanded ? null : aff.id)}
+                                                className="text-xs text-gray-500 hover:text-white transition-colors font-bold uppercase tracking-widest py-2"
+                                            >
+                                                {isExpanded ? 'Hide Details' : 'View Details'}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-2 min-w-[160px]">
-                                    <select value={aff.status} onChange={e => updateStatus(aff.id, e.target.value)} className="bg-[#111] text-white text-xs font-bold border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-[var(--primary-color)] cursor-pointer">
-                                        <option value="pending">Pending</option>
-                                        <option value="approved">Approved</option>
-                                        <option value="rejected">Rejected</option>
-                                        <option value="suspended">Suspended</option>
-                                    </select>
-                                </div>
+
+                                {/* Expandable detail section */}
+                                {isExpanded && (
+                                    <div className="border-t border-white/5 bg-[#080808] p-6 md:p-8 space-y-6">
+                                        {/* Links */}
+                                        <div>
+                                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Referral Links ({affLinks.length})</h4>
+                                            {affLinks.length === 0 ? (
+                                                <p className="text-xs text-gray-600">No links generated yet.</p>
+                                            ) : (
+                                                <div className="grid gap-2">
+                                                    {affLinks.map((link: any) => (
+                                                        <div key={link.id} className="flex items-center justify-between bg-[#111] p-3 rounded-xl text-xs">
+                                                            <div>
+                                                                <span className="font-mono text-gray-400">{link.url_code}</span>
+                                                                {!link.product_id && <span className="ml-2 text-[var(--primary-color)] text-[10px] font-bold uppercase">Homepage</span>}
+                                                            </div>
+                                                            <div className="flex gap-4 text-gray-500">
+                                                                <span><strong className="text-white">{link.clicks}</strong> clicks</span>
+                                                                <span><strong className="text-white">{link.conversions}</strong> conv.</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Conversions */}
+                                        <div>
+                                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Recent Conversions ({affConversions.length})</h4>
+                                            {affConversions.length === 0 ? (
+                                                <p className="text-xs text-gray-600">No conversions recorded.</p>
+                                            ) : (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left text-xs">
+                                                        <thead>
+                                                            <tr className="border-b border-white/5 text-[10px] uppercase font-bold tracking-widest text-gray-600">
+                                                                <th className="pb-2 pr-4">Date</th>
+                                                                <th className="pb-2 pr-4">Order</th>
+                                                                <th className="pb-2 pr-4">Total</th>
+                                                                <th className="pb-2">Commission</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="font-mono">
+                                                            {affConversions.slice().sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10).map((conv: any) => (
+                                                                <tr key={conv.id} className="border-b border-white/5 last:border-0 text-gray-400">
+                                                                    <td className="py-2 pr-4">{new Date(conv.created_at).toLocaleDateString()}</td>
+                                                                    <td className="py-2 pr-4 text-gray-600">{conv.order_id.slice(0, 8)}...</td>
+                                                                    <td className="py-2 pr-4">${parseFloat(conv.order_total).toFixed(2)}</td>
+                                                                    <td className="py-2 text-[var(--primary-color)] font-bold">+${parseFloat(conv.commission_amount).toFixed(2)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="text-[10px] text-gray-600 font-mono">
+                                            Joined: {new Date(aff.created_at).toLocaleDateString()} | ID: {aff.id.slice(0, 8)}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
