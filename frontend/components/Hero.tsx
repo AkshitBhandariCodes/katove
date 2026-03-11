@@ -2,48 +2,85 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getApiUrl } from "@/utils/api";
 import heroImage1 from "@/assets/image copy 4.png";
 import heroImage2 from "@/assets/image copy 5.png";
 import heroImage3 from "@/assets/image copy 2.png";
 
-const slides = [
+const fallbackSlides = [
   {
-    id: 1,
-    image: heroImage1,
+    id: "fallback-1",
+    image_url: "",
+    localImage: heroImage1,
     subtitle: "New Release",
     title: "Check Out\nThe New\nGaming PCs!",
     description: "More than a processor—it's the engine behind your gameplay and performance.",
     discount: "-12%",
-    accent: "#ccff00",
+    accent_color: "#ccff00",
   },
   {
-    id: 2,
-    image: heroImage2,
+    id: "fallback-2",
+    image_url: "",
+    localImage: heroImage2,
     subtitle: "Ergonomic Design",
     title: "Level Up\nYour Comfort\nZone",
     description: "Experience the ultimate in gaming comfort with our new futuristic ergonomic chairs.",
     discount: "-15%",
-    accent: "#00ffff",
+    accent_color: "#00ffff",
   },
   {
-    id: 3,
-    image: heroImage3,
+    id: "fallback-3",
+    image_url: "",
+    localImage: heroImage3,
     subtitle: "Immersive Audio",
     title: "Hear Every\nFootstep\nClearly",
     description: "Precision spatial audio that puts you right in the center of the action.",
     discount: "-10%",
-    accent: "#ff00ff",
+    accent_color: "#ff00ff",
   },
 ];
 
+interface HeroSlide {
+  id: string;
+  image_url: string;
+  localImage?: any;
+  subtitle: string;
+  title: string;
+  description: string;
+  discount: string;
+  accent_color: string;
+}
+
 export function Hero() {
+  const [slides, setSlides] = useState<HeroSlide[]>(fallbackSlides);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch(getApiUrl("/api/heroes"))
+      .then(res => res.json())
+      .then((data: any[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setSlides(data.map(h => ({
+            id: h.id,
+            image_url: h.image_url || "",
+            subtitle: h.subtitle || "",
+            title: h.title || "",
+            description: h.description || "",
+            discount: h.discount || "",
+            accent_color: h.accent_color || "#ccff00",
+          })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsLoaded(true));
+  }, []);
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % slides.length);
-  }, []);
+  }, [slides.length]);
 
   const prevSlide = () => {
     setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
@@ -63,6 +100,8 @@ export function Hero() {
   const prevSlideData = slides[getSlideIndex(-1)];
   const nextSlideData = slides[getSlideIndex(1)];
 
+  const getImageSrc = (slide: HeroSlide) => slide.image_url || slide.localImage || "/images/placeholder.png";
+
   return (
     <section className="relative w-full h-screen pt-24 pb-12 overflow-hidden flex items-center justify-center bg-[#050505]">
       {/* Main Card Slider Container */}
@@ -74,10 +113,11 @@ export function Hero() {
             className="hidden lg:block w-[120px] h-full rounded-[32px] overflow-hidden opacity-40 hover:opacity-60 transition-opacity bg-[#111] border border-white/5 relative shrink-0 cursor-pointer group"
         >
            <Image
-            src={prevSlideData.image}
+            src={getImageSrc(prevSlideData)}
             alt="Previous"
             fill
             className="object-cover group-hover:scale-110 transition-transform duration-500"
+            unoptimized={!!prevSlideData.image_url}
           />
            <div className="absolute inset-0 bg-black/50" />
         </div>
@@ -96,11 +136,12 @@ export function Hero() {
               {/* Background Image */}
               <div className="absolute inset-0">
                  <Image
-                  src={currentSlide.image}
+                  src={getImageSrc(currentSlide)}
                   alt="Hero Image"
                   fill
                   className="object-cover hover:scale-105 transition-transform duration-700"
                   priority
+                  unoptimized={!!currentSlide.image_url}
                 />
                 <div className="absolute inset-0 bg-black/50" />
               </div>
@@ -112,9 +153,9 @@ export function Hero() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                   className="inline-flex items-center gap-2 font-medium tracking-wide mb-6 uppercase text-xs"
-                  style={{ color: currentSlide.accent }}
+                  style={{ color: currentSlide.accent_color }}
                 >
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentSlide.accent }} />
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentSlide.accent_color }} />
                   {currentSlide.subtitle}
                 </motion.span>
                 
@@ -142,7 +183,7 @@ export function Hero() {
                     transition={{ delay: 0.5 }}
                     onClick={() => window.location.href = '/collections'}
                     className="text-black font-bold py-3 px-8 md:py-4 md:px-10 rounded-full w-fit hover:bg-white transition-colors duration-300 flex items-center gap-2 group/btn border border-transparent"
-                    style={{ backgroundColor: currentSlide.accent }}
+                    style={{ backgroundColor: currentSlide.accent_color }}
                 >
                   Shop Now
                   <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
@@ -163,10 +204,11 @@ export function Hero() {
             className="hidden lg:block w-[120px] h-full rounded-[32px] overflow-hidden opacity-40 hover:opacity-60 transition-opacity bg-[#111] border border-white/5 relative shrink-0 cursor-pointer group"
         >
           <Image
-            src={nextSlideData.image}
+            src={getImageSrc(nextSlideData)}
             alt="Next"
             fill
             className="object-cover group-hover:scale-110 transition-transform duration-500"
+            unoptimized={!!nextSlideData.image_url}
           />
           <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full z-10">
             {nextSlideData.discount}
@@ -174,7 +216,7 @@ export function Hero() {
           <div className="absolute inset-0 bg-black/30" />
           
            <div className="absolute bottom-20 left-4 right-4 z-10">
-             <p className="text-xs font-medium mb-1" style={{ color: nextSlideData.accent }}>• {nextSlideData.subtitle}</p>
+             <p className="text-xs font-medium mb-1" style={{ color: nextSlideData.accent_color }}>• {nextSlideData.subtitle}</p>
              <p className="text-white text-sm font-bold leading-tight line-clamp-2">Click to View</p>
            </div>
         </div>
@@ -202,7 +244,7 @@ export function Hero() {
                 key={slide.id}
                 onClick={() => setCurrentIndex(index)}
                 className={`h-1 rounded-full transition-all duration-300 ${index === currentIndex ? "w-12" : "w-8 bg-white/20"}`}
-                style={{ backgroundColor: index === currentIndex ? slide.accent : undefined }}
+                style={{ backgroundColor: index === currentIndex ? slide.accent_color : undefined }}
             />
         ))}
       </div>

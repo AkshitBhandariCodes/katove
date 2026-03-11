@@ -1440,6 +1440,92 @@ function AffiliatesManager() {
     );
 }
 
+// --- Homepage Sections Manager ---
+
+function HomepageSectionsManager() {
+    const { token } = useAuth();
+    const [sections, setSections] = useState<{id:string;name:string;enabled:boolean;order:number}[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        fetch(getApiUrl("/api/homepage-sections"))
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) setSections(data.sort((a: any, b: any) => a.order - b.order));
+            })
+            .catch(() => {})
+            .finally(() => setIsLoading(false));
+    }, []);
+
+    const toggleSection = (id: string) => {
+        setSections(prev => prev.map(s => s.id === id ? { ...s, enabled: !s.enabled } : s));
+    };
+
+    const moveSection = (id: string, direction: 'up' | 'down') => {
+        setSections(prev => {
+            const idx = prev.findIndex(s => s.id === id);
+            if (idx < 0) return prev;
+            const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+            if (newIdx < 0 || newIdx >= prev.length) return prev;
+            const copy = [...prev];
+            [copy[idx], copy[newIdx]] = [copy[newIdx], copy[idx]];
+            return copy.map((s, i) => ({ ...s, order: i }));
+        });
+    };
+
+    const saveSections = async () => {
+        setIsSaving(true);
+        try {
+            await fetch(getApiUrl("/api/homepage-sections"), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ sections })
+            });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-transparent" />
+            <h3 className="text-xl font-black uppercase text-white mb-2 italic flex items-center gap-3">
+                <Monitor className="w-6 h-6 text-emerald-500" /> Homepage Layout
+            </h3>
+            <p className="text-xs text-gray-500 mb-8">Drag to reorder, toggle visibility of homepage sections</p>
+
+            {isLoading ? (
+                <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[var(--primary-color)] mx-auto" /></div>
+            ) : (
+                <div className="space-y-3">
+                    {sections.map((section, idx) => (
+                        <div key={section.id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${section.enabled ? 'bg-black/40 border-white/10' : 'bg-black/20 border-white/5 opacity-50'}`}>
+                            <div className="flex flex-col gap-1">
+                                <button onClick={() => moveSection(section.id, 'up')} disabled={idx === 0} className="text-gray-500 hover:text-white disabled:opacity-20 text-xs">&#9650;</button>
+                                <button onClick={() => moveSection(section.id, 'down')} disabled={idx === sections.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 text-xs">&#9660;</button>
+                            </div>
+                            <div className="flex-1">
+                                <div className="font-bold text-white text-sm uppercase tracking-wider">{section.name}</div>
+                                <div className="text-[10px] text-gray-600 font-mono">#{section.id}</div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={section.enabled} onChange={() => toggleSection(section.id)} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--primary-color)]"></div>
+                            </label>
+                        </div>
+                    ))}
+                    <button onClick={saveSections} disabled={isSaving} className="mt-4 w-full py-3 bg-emerald-500/20 text-emerald-400 font-bold uppercase text-xs tracking-widest rounded-xl hover:bg-emerald-500/30 transition-all disabled:opacity-50">
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Save Layout'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // --- Hero List Manager ---
 
 function HeroListManager() {
@@ -1447,6 +1533,9 @@ function HeroListManager() {
     const [heroes, setHeroes] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editData, setEditData] = useState<any>({});
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
     const [newHero, setNewHero] = useState<any>({
         title: '', subtitle: '', description: '', discount: '', accent_color: '#ccff00'
     });
@@ -1569,6 +1658,36 @@ function HeroListManager() {
         }
     };
 
+    const startEditing = (hero: any) => {
+        setEditingId(hero.id);
+        setEditData({ title: hero.title, subtitle: hero.subtitle, description: hero.description, discount: hero.discount, accent_color: hero.accent_color });
+    };
+
+    const cancelEditing = () => {
+        setEditingId(null);
+        setEditData({});
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingId) return;
+        setIsSavingEdit(true);
+        try {
+            const res = await fetch(getApiUrl(`/api/heroes/${editingId}`), {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(editData)
+            });
+            if (!res.ok) throw new Error('Update failed');
+            setEditingId(null);
+            setEditData({});
+            fetchHeroes();
+        } catch (err: any) {
+            alert(err.message);
+        } finally {
+            setIsSavingEdit(false);
+        }
+    };
+
     return (
         <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--primary-color)] to-transparent" />
@@ -1642,17 +1761,43 @@ function HeroListManager() {
                     ) : (
                         <div className="grid gap-4">
                             {heroes.map(hero => (
-                                <div key={hero.id} className="bg-black/40 border border-white/5 rounded-2xl p-4 flex gap-6 items-center group">
-                                    <div className="w-24 h-16 rounded-lg overflow-hidden shrink-0 border border-white/10">
-                                        <img src={hero.image_url} className="w-full h-full object-cover" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black uppercase mb-1" style={{ color: hero.accent_color }}>{hero.subtitle || 'General Asset'}</p>
-                                        <h5 className="font-bold text-white truncate">{hero.title}</h5>
-                                    </div>
-                                    <button onClick={() => handleDelete(hero.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                <div key={hero.id} className="bg-black/40 border border-white/5 rounded-2xl p-4 group">
+                                    {editingId === hero.id ? (
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <input value={editData.title} onChange={e => setEditData({...editData, title: e.target.value})} className="bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:border-[var(--primary-color)] outline-none" placeholder="Title" />
+                                                <input value={editData.subtitle} onChange={e => setEditData({...editData, subtitle: e.target.value})} className="bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:border-[var(--primary-color)] outline-none" placeholder="Subtitle" />
+                                                <input value={editData.discount} onChange={e => setEditData({...editData, discount: e.target.value})} className="bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:border-[var(--primary-color)] outline-none" placeholder="Discount" />
+                                                <div className="flex gap-2">
+                                                    <input type="color" value={editData.accent_color} onChange={e => setEditData({...editData, accent_color: e.target.value})} className="w-10 h-10 bg-black border border-white/10 rounded-lg p-0.5 cursor-pointer" />
+                                                    <input value={editData.accent_color} onChange={e => setEditData({...editData, accent_color: e.target.value})} className="flex-1 bg-black/60 border border-white/10 rounded-xl px-4 text-white font-mono text-xs focus:border-[var(--primary-color)] outline-none" />
+                                                </div>
+                                            </div>
+                                            <textarea value={editData.description} onChange={e => setEditData({...editData, description: e.target.value})} className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:border-[var(--primary-color)] outline-none resize-none" rows={2} placeholder="Description" />
+                                            <div className="flex gap-3 justify-end">
+                                                <button onClick={cancelEditing} className="px-4 py-2 text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase">Cancel</button>
+                                                <button onClick={handleSaveEdit} disabled={isSavingEdit} className="px-6 py-2 bg-[var(--primary-color)] text-black text-xs font-black rounded-xl uppercase disabled:opacity-50">
+                                                    {isSavingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-6 items-center">
+                                            <div className="w-24 h-16 rounded-lg overflow-hidden shrink-0 border border-white/10">
+                                                <img src={hero.image_url} className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[10px] font-black uppercase mb-1" style={{ color: hero.accent_color }}>{hero.subtitle || 'General Asset'}</p>
+                                                <h5 className="font-bold text-white truncate">{hero.title}</h5>
+                                            </div>
+                                            <button onClick={() => startEditing(hero)} className="p-3 bg-white/5 text-gray-400 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--primary-color)]/20 hover:text-[var(--primary-color)]">
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleDelete(hero.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -1796,6 +1941,33 @@ function SettingsManager() {
                 </div>
 
                 <HeroListManager />
+
+                {/* Homepage Section Layout Manager */}
+                <HomepageSectionsManager />
+
+                {/* Featured Banner Editor */}
+                <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-transparent" />
+                    <h3 className="text-xl font-black uppercase text-white mb-8 italic flex items-center gap-3">
+                        <Monitor className="w-6 h-6 text-purple-500" /> Featured Banner Content
+                    </h3>
+                    <div className="grid grid-cols-1 gap-6">
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Banner Title</label>
+                            <textarea value={settings.featured_banner_title || ""} onChange={e => handleChange('featured_banner_title', e.target.value)} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-[var(--primary-color)] outline-none resize-none" rows={3} placeholder="Engineered For The&#10;Modern Gaming World&#10;With Unmatched Power" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Banner Subtitle</label>
+                                <input value={settings.featured_banner_subtitle || ""} onChange={e => handleChange('featured_banner_subtitle', e.target.value)} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-[var(--primary-color)] outline-none" placeholder="Exclusive Technology" />
+                            </div>
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">CTA Button Text</label>
+                                <input value={settings.featured_banner_cta || ""} onChange={e => handleChange('featured_banner_cta', e.target.value)} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-[var(--primary-color)] outline-none" placeholder="Explore Now" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Checkout Section */}
                 <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 relative overflow-hidden">

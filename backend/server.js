@@ -1134,15 +1134,15 @@ app.post('/api/affiliates/register', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Type must be sales_manager or content_creator' });
     }
 
-    // Check if already registered
+    // Check if already registered - return existing data instead of error
     const { data: existing } = await supabase
       .from('affiliates')
-      .select('id')
+      .select('*')
       .eq('user_id', req.user.id)
       .single();
 
     if (existing) {
-      return res.status(400).json({ message: 'Already registered as affiliate' });
+      return res.status(200).json({ ...existing, already_registered: true });
     }
 
     // Get default commission rate
@@ -1597,6 +1597,33 @@ app.post('/api/heroes', authenticateAdmin, async (req, res) => {
   }
 });
 
+app.put('/api/heroes/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { title, subtitle, description, discount, accent_color, order_index, image_url } = req.body;
+    const updates = { updated_at: new Date().toISOString() };
+    if (title !== undefined) updates.title = title;
+    if (subtitle !== undefined) updates.subtitle = subtitle;
+    if (description !== undefined) updates.description = description;
+    if (discount !== undefined) updates.discount = discount;
+    if (accent_color !== undefined) updates.accent_color = accent_color;
+    if (order_index !== undefined) updates.order_index = parseInt(order_index);
+    if (image_url !== undefined) updates.image_url = image_url;
+
+    const { data, error } = await supabase
+      .from('heroes')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Hero update error:', err);
+    res.status(500).json({ message: 'Failed to update hero' });
+  }
+});
+
 app.delete('/api/heroes/:id', authenticateAdmin, async (req, res) => {
   try {
     const { data: hero, error: fetchError } = await supabase
@@ -1647,6 +1674,62 @@ app.put('/api/settings/batch', authenticateAdmin, async (req, res) => {
     res.status(500).json({ message: 'Failed to batch update settings' });
   }
 });
+
+// ──────────────────────────────────────────
+// HOMEPAGE SECTIONS API
+// ──────────────────────────────────────────
+
+app.get('/api/homepage-sections', async (req, res) => {
+  try {
+    const { data: setting } = await supabase
+      .from('site_settings')
+      .select('value')
+      .eq('key', 'homepage_sections')
+      .single();
+
+    if (setting && setting.value) {
+      try {
+        res.json(JSON.parse(setting.value));
+      } catch {
+        res.json(getDefaultSections());
+      }
+    } else {
+      res.json(getDefaultSections());
+    }
+  } catch (err) {
+    res.json(getDefaultSections());
+  }
+});
+
+app.put('/api/homepage-sections', authenticateAdmin, async (req, res) => {
+  try {
+    const { sections } = req.body;
+    if (!Array.isArray(sections)) return res.status(400).json({ message: 'sections must be an array' });
+
+    await supabase
+      .from('site_settings')
+      .upsert({
+        key: 'homepage_sections',
+        value: JSON.stringify(sections),
+        type: 'json',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+
+    res.json({ message: 'Homepage sections updated' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update homepage sections' });
+  }
+});
+
+function getDefaultSections() {
+  return [
+    { id: 'hero', name: 'Hero Slider', enabled: true, order: 0 },
+    { id: 'whats_new', name: "What's New", enabled: true, order: 1 },
+    { id: 'featured_banner', name: 'Featured Banner', enabled: true, order: 2 },
+    { id: 'categories', name: 'Categories', enabled: true, order: 3 },
+    { id: 'top_items', name: 'Top Items', enabled: true, order: 4 },
+  ];
+}
 
 // ──────────────────────────────────────────
 // USER PROFILE / DASHBOARD

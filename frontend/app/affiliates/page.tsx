@@ -50,6 +50,7 @@ export default function AffiliatesLandingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Registration failed');
+      // If already registered or newly registered, go to dashboard
       router.push('/affiliate');
     } catch (e: any) {
       setErrorMsg(e.message);
