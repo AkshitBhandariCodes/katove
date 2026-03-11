@@ -160,19 +160,3 @@ export function Categories() {
     </section>
   );
 }
-                            onClick={() => window.location.href = '/collections'}
-                            className="px-6 py-2 rounded-full border border-white/20 text-white font-bold text-sm hover:bg-[#ccff00] hover:text-black hover:border-[#ccff00] transition-all"
-                        >
-                            Shop Now
-                        </button>
-                    </div>
-                     <div className="absolute right-0 top-0 bottom-0 w-1/2">
-                        <Image src={catChairs} alt="Chair" fill className="object-contain p-4 group-hover:scale-105 transition-transform" />
-                    </div>
-                </motion.div>
-            </div>
-        </div>
-      </div>
-    </section>
-  );
-}
