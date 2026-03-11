@@ -1142,6 +1142,8 @@ app.post('/api/affiliates/register', authenticateToken, async (req, res) => {
       .single();
 
     if (existing) {
+      // Ensure profile role is set to partner even for previously registered users
+      await supabase.from('profiles').update({ role: 'partner' }).eq('id', req.user.id);
       return res.status(200).json({ ...existing, already_registered: true });
     }
 
@@ -1176,6 +1178,12 @@ app.post('/api/affiliates/register', authenticateToken, async (req, res) => {
       url_code: 'r-' + crypto.randomBytes(4).toString('hex')
     });
 
+    // Update profile role to 'partner'
+    await supabase
+      .from('profiles')
+      .update({ role: 'partner' })
+      .eq('id', req.user.id);
+
     res.status(201).json(data);
   } catch (err) {
     console.error('Affiliate register error:', err);
@@ -1185,22 +1193,32 @@ app.post('/api/affiliates/register', authenticateToken, async (req, res) => {
 
 app.get('/api/affiliates/dashboard', authenticateToken, async (req, res) => {
   try {
-    const { data: affiliate, error } = await supabase
+    // First check if affiliate exists at all
+    const { data: affiliateBase, error: baseError } = await supabase
       .from('affiliates')
-      .select(`
-        *,
-        links:referral_links(
-          id, product_id, url_code, clicks, conversions,
-          product:products(id, name, slug, selling_price)
-        ),
-        conversions:referral_conversions(
-          id, order_id, referral_link_id, order_total, commission_amount, created_at
-        )
-      `)
+      .select('*')
       .eq('user_id', req.user.id)
       .single();
 
-    if (error || !affiliate) return res.status(404).json({ message: 'Affiliate account not found' });
+    if (baseError || !affiliateBase) return res.status(404).json({ message: 'Affiliate account not found' });
+
+    // Fetch links separately to avoid join issues
+    const { data: links } = await supabase
+      .from('referral_links')
+      .select('id, product_id, url_code, clicks, conversions, product:products(id, name, slug, selling_price)')
+      .eq('affiliate_id', affiliateBase.id);
+
+    // Fetch conversions separately
+    const { data: conversionsList } = await supabase
+      .from('referral_conversions')
+      .select('id, order_id, referral_link_id, order_total, commission_amount, created_at')
+      .eq('affiliate_id', affiliateBase.id);
+
+    const affiliate = {
+      ...affiliateBase,
+      links: links || [],
+      conversions: conversionsList || []
+    };
 
     // Compute per-link revenue/commission from conversions
     const linkStats = {};

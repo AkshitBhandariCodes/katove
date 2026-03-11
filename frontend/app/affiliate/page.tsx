@@ -56,6 +56,8 @@ export default function AffiliateDashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [generatingLink, setGeneratingLink] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [roleMode, setRoleMode] = useState<'content_creator' | 'sales_manager'>('content_creator');
 
   const [copiedLink, setCopiedLink] = useState('');
   const [activeTab, setActiveTab] = useState<'links' | 'earnings'>('links');
@@ -127,6 +129,26 @@ export default function AffiliateDashboard() {
     setTimeout(() => setCopiedLink(''), 2000);
   };
 
+  const handleInlineRegister = async () => {
+    if (!user || !token) return;
+    setRegistering(true);
+    try {
+      const res = await fetch(getApiUrl("/api/affiliates/register"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ type: roleMode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Registration failed");
+      // Re-fetch dashboard to populate affiliate state
+      await fetchDashboard();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setRegistering(false);
+    }
+  };
+
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const apiBase = getApiUrl('');
 
@@ -155,12 +177,30 @@ export default function AffiliateDashboard() {
     return (
       <div className="min-h-screen bg-[#050505] pt-32 pb-20 px-4 md:px-12 flex items-center justify-center">
         <Navbar />
-        <div className="bg-[#111] p-10 rounded-3xl border border-white/10 text-center max-w-md w-full">
+        <div className="bg-[#111] p-10 rounded-3xl border border-white/10 text-center max-w-lg w-full">
           <Users className="w-12 h-12 text-[var(--primary-color)] mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-4">Not a Partner Yet</h2>
-          <p className="text-gray-400 mb-6">Join the affiliate program to get access to your dashboard.</p>
-          <button onClick={() => router.push('/affiliates')} className="px-8 py-3 bg-[var(--primary-color)] text-black font-bold uppercase rounded-xl hover:brightness-110 transition-all">
-            Join Program
+          <h2 className="text-2xl font-bold text-white mb-2">Join the Partner Program</h2>
+          <p className="text-gray-400 mb-8 text-sm">Choose your role and start earning commission on every sale you refer.</p>
+
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <label className={`cursor-pointer border-2 rounded-2xl p-5 flex-1 transition-all text-left ${roleMode === 'content_creator' ? 'border-[var(--primary-color)] bg-[var(--primary-color)]/5' : 'border-white/10 bg-[#0a0a0a] hover:border-white/30'}`}>
+              <input type="radio" name="role" value="content_creator" checked={roleMode === 'content_creator'} onChange={() => setRoleMode('content_creator')} className="hidden" />
+              <div className="font-bold text-white mb-1">Content Creator</div>
+              <p className="text-[11px] text-gray-500 font-mono">Influencers, bloggers, YouTubers</p>
+            </label>
+            <label className={`cursor-pointer border-2 rounded-2xl p-5 flex-1 transition-all text-left ${roleMode === 'sales_manager' ? 'border-[var(--primary-color)] bg-[var(--primary-color)]/5' : 'border-white/10 bg-[#0a0a0a] hover:border-white/30'}`}>
+              <input type="radio" name="role" value="sales_manager" checked={roleMode === 'sales_manager'} onChange={() => setRoleMode('sales_manager')} className="hidden" />
+              <div className="font-bold text-white mb-1">Sales Manager</div>
+              <p className="text-[11px] text-gray-500 font-mono">B2B referrers, resellers</p>
+            </label>
+          </div>
+
+          <button
+            onClick={handleInlineRegister}
+            disabled={registering}
+            className="w-full py-3.5 bg-[var(--primary-color)] text-black font-black uppercase text-sm tracking-widest rounded-xl hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle className="w-5 h-5" /> Apply Now</>}
           </button>
         </div>
       </div>
