@@ -1144,6 +1144,11 @@ app.post('/api/affiliates/register', authenticateToken, async (req, res) => {
     if (existing) {
       // Ensure profile role is set to partner even for previously registered users
       await supabase.from('profiles').update({ role: 'partner' }).eq('id', req.user.id);
+      // Auto-approve if still pending
+      if (existing.status === 'pending') {
+        await supabase.from('affiliates').update({ status: 'approved' }).eq('id', existing.id);
+        existing.status = 'approved';
+      }
       return res.status(200).json({ ...existing, already_registered: true });
     }
 
@@ -1164,7 +1169,7 @@ app.post('/api/affiliates/register', authenticateToken, async (req, res) => {
         type,
         referral_code: generateReferralCode(),
         commission_rate: commissionRate,
-        status: 'pending'
+        status: 'approved'
       })
       .select()
       .single();
